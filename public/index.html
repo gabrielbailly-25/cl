@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Consejo local</title>
+    <meta name="description" content="Gestión eficaz de reuniones, asuntos, acuerdos, tareas y documentos compartidos.">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Consejo local">
+    <meta property="og:description" content="Gestión eficaz de reuniones y acuerdos.">
+    <meta property="og:image" content="https://consejo.gecoas.es/images/og-image.png?v=20260820">
+    <meta property="og:url" content="https://consejo.gecoas.es/">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Consejo local">
+    <meta name="twitter:description" content="Gestión eficaz de reuniones y acuerdos.">
+    <meta name="twitter:image" content="https://consejo.gecoas.es/images/og-image.png?v=20260820">
+    <link rel="icon" type="image/png" href="/images/app-icon.png?v=20260820">
+    <link rel="apple-touch-icon" href="/images/app-icon.png?v=20260820">
+    <link rel="stylesheet" href="/styles.css?v=20260803-3700">
+    <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
+  </head>
+  <body>
+    <main id="login" class="login-view hidden">
+      <section class="login-card">
+        <img class="login-logo" src="/images/app-icon.png?v=20260820" alt="Consejo local">
+        <h1>Consejo local</h1>
+        <p>Acceso restringido a los usuarios autorizados.</p>
+        <form id="loginForm" class="stack">
+          <label>Email<input type="email" id="loginEmail" autocomplete="username" required></label>
+          <label>Password<input type="password" id="loginPassword" autocomplete="current-password" required></label>
+          <button type="submit">Entrar</button>
+        </form>
+        <button id="forgotPasswordButton" type="button" class="link-button">Olvidé mi contraseña</button>
+        <form id="passwordResetRequestForm" class="stack hidden">
+          <label>Email<input type="email" id="passwordResetEmail" autocomplete="email" required></label>
+          <button type="submit">Enviar enlace</button>
+          <button id="cancelPasswordResetButton" type="button" class="link-button">Volver al acceso</button>
+        </form>
+        <form id="passwordResetConfirmForm" class="stack hidden">
+          <p>Elige una contraseña de al menos 12 caracteres.</p>
+          <label>Nueva contraseña<input type="password" id="newPassword" autocomplete="new-password" minlength="12" required></label>
+          <label>Repite la contraseña<input type="password" id="confirmPassword" autocomplete="new-password" minlength="12" required></label>
+          <button type="submit">Guardar contraseña</button>
+        </form>
+        <a id="googleLogin" class="google-button hidden" href="/auth/google" aria-label="Entrar con Google">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.38 12 5.38z"/></svg>
+          <span>Entrar con Google</span>
+        </a>
+        <p id="loginError" class="error"></p>
+      </section>
+    </main>
+
+    <main id="app" class="app hidden">
+      <header class="hero">
+        <div class="brand-title">
+          <img id="dashboardLogo" class="dashboard-logo hidden" alt="">
+          <div>
+          <div class="dashboard-title-row"><h1 id="dashboardTitle">Consejo local</h1><button id="editDashboardTitleButton" type="button" class="icon-button" aria-label="Editar título de la reunión">✏️</button></div>
+          <p>Gestion de reuniones, asuntos pendientes, acuerdos y documentos compartidos.</p>
+          </div>
+        </div>
+        <div class="user-box">
+          <details id="accountMenu" class="account-menu">
+            <summary>
+              <img id="userAvatar" class="user-avatar hidden" alt="">
+              <span id="userAvatarFallback" class="user-avatar user-avatar-fallback" aria-hidden="true"></span>
+            </summary>
+            <div class="account-menu-options">
+              <p><strong id="userName"></strong><span id="userEmail"></span></p>
+              <a id="switchGoogleAccount" href="/auth/google">Cambiar cuenta de Google</a>
+              <label id="dashboardSelectorBox" class="dashboard-selector hidden">Reunión<select id="dashboardSelector"></select></label>
+              <label id="pushNotificationSetting" class="push-setting hidden"><input id="pushNotifications" type="checkbox"> Notificaciones push</label>
+              <button id="logoutButton" type="button" class="account-menu-action">Salir</button>
+            </div>
+          </details>
+        </div>
+      </header>
+
+      <div id="textBlocksControls" class="text-block-controls">
+        <button id="addTextBlockButton" type="button">Añade texto</button>
+      </div>
+
+      <div id="sectionsList" class="sections-list">
+      <section id="linksPanel" class="panel links-panel" data-section-id="links">
+        <div class="section-title">
+          <div class="section-heading">
+            <button type="button" class="collapse-button" data-collapse-section="links" aria-label="Ocultar enlaces">🔽</button>
+            <h2 id="linksTitle">Enlaces de uso frecuente</h2>
+            <button type="button" class="icon-button section-edit-button" data-edit-section-title="links" aria-label="Editar título">✏️</button>
+          </div>
+          <div class="link-actions">
+            <button id="addLinkButton" type="button">Añadir enlace</button>
+          </div>
+        </div>
+        <div id="linksList" class="links-grid"></div>
+      </section>
+
+      <section class="panel" data-section-id="issues">
+        <div class="section-title">
+          <div class="section-heading">
+            <button type="button" class="collapse-button" data-collapse-section="issues" aria-label="Ocultar asuntos">🔽</button>
+            <h2 id="issuesTitle">Asuntos para la próxima reunión</h2>
+            <button type="button" class="icon-button section-edit-button" data-edit-section-title="issues" aria-label="Editar título">✏️</button>
+            <button id="exportIssuesButton" type="button" class="icon-button section-export-button" aria-label="Exportar Asuntos a CSV">&#8595;</button>
+          </div>
+          <div class="link-actions">
+            <button id="addIssueButton" type="button">Añadir asunto</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha</th><th>Título</th><th>Quién lo ha añadido</th><th>Nº tareas</th><th>Leído</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="issuesBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="pendingTasksPanel" class="panel hidden" data-section-id="pendingTasks">
+          <div class="section-title">
+          <div class="section-heading">
+            <button type="button" class="collapse-button" data-collapse-section="pendingTasks" aria-label="Ocultar tareas pendientes">🔽</button>
+            <h2 id="pendingTasksTitle">Tareas pendientes</h2>
+            <button type="button" class="icon-button section-edit-button" data-edit-section-title="pendingTasks" aria-label="Editar título">✏️</button>
+            <button id="exportPendingTasksButton" type="button" class="icon-button section-export-button" aria-label="Exportar Tareas pendientes a CSV">&#8595;</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Tarea</th><th>Asunto</th><th>Quién/es la deben realizar</th><th>Fecha límite</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="pendingTasksBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel" data-section-id="agreements">
+        <div class="section-title">
+          <div class="section-heading">
+            <button type="button" class="collapse-button" data-collapse-section="agreements" aria-label="Ocultar acuerdos">🔽</button>
+            <h2 id="agreementsTitle">Acuerdos</h2>
+            <button type="button" class="icon-button section-edit-button" data-edit-section-title="agreements" aria-label="Editar título">✏️</button>
+            <button id="exportAgreementsButton" type="button" class="icon-button section-export-button" aria-label="Exportar Acuerdos a CSV">&#8595;</button>
+          </div>
+          <div class="link-actions">
+            <button id="addAgreementButton" type="button">Añadir acuerdo</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fecha del acuerdo</th><th>Título</th><th>Descripción</th><th></th></tr></thead>
+            <tbody id="agreementsBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div id="tablesControls" class="tables-controls">
+        <button id="addTableButton" type="button">Añadir tabla</button>
+      </div>
+      </div>
+
+      <section id="adminPanel" class="panel hidden">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Administración</p>
+            <h2>Configuración</h2>
+          </div>
+        </div>
+        <div class="tabs">
+          <button id="usersTabButton" class="secondary" type="button">Usuarios</button>
+          <button id="remindersTabButton" class="secondary" type="button">Correos de tareas</button>
+        </div>
+        <div id="usersTab" class="admin-tab stack">
+          <div class="section-title compact-title">
+            <h3>Usuarios autorizados</h3>
+            <div class="link-actions">
+              <button id="addUserButton" class="secondary" type="button">Añadir usuario</button>
+              <button id="saveUsersButton" type="button">Guardar usuarios</button>
+            </div>
+          </div>
+          <div id="allowedUsersList" class="user-list"></div>
+        </div>
+        <div id="remindersTab" class="admin-tab stack hidden">
+          <div class="section-title compact-title">
+            <h3>Envío de tareas pendientes</h3>
+            <button id="saveReminderButton">Guardar programación</button>
+          </div>
+          <label class="check-label"><input id="reminderEnabled" type="checkbox"> Activar envío automático</label>
+          <fieldset class="weekday-grid">
+            <legend>Día/días de la semana</legend>
+            <label><input type="checkbox" name="reminderDay" value="1"> Lunes</label>
+            <label><input type="checkbox" name="reminderDay" value="2"> Martes</label>
+            <label><input type="checkbox" name="reminderDay" value="3"> Miércoles</label>
+            <label><input type="checkbox" name="reminderDay" value="4"> Jueves</label>
+            <label><input type="checkbox" name="reminderDay" value="5"> Viernes</label>
+            <label><input type="checkbox" name="reminderDay" value="6"> Sábado</label>
+            <label><input type="checkbox" name="reminderDay" value="0"> Domingo</label>
+          </fieldset>
+          <label>Hora de envío<input id="reminderTime" type="time" value="08:00"></label>
+          <div class="smtp-grid">
+            <label>Servidor SMTP<input id="smtpHost" placeholder="smtp.gmail.com"></label>
+            <label>Puerto<input id="smtpPort" type="number" value="587"></label>
+            <label>Usuario Gmail<input id="smtpUser" type="email" placeholder="usuario@gmail.com"></label>
+            <label>Contraseña de aplicación<input id="smtpPass" type="password" placeholder="Dejar en blanco para no cambiarla"></label>
+            <label>Remitente<input id="smtpFrom" type="email" placeholder="usuario@gmail.com"></label>
+          </div>
+          <details class="help-box">
+            <summary>Cómo obtener la contraseña de aplicación de Gmail</summary>
+            <p>Entra en <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Contraseñas de aplicaciones de Google</a>.</p>
+            <p>Si Google lo pide, activa antes la verificación en dos pasos desde la sección Seguridad de tu cuenta.</p>
+            <p>Crea una nueva contraseña para esta app y copia la clave generada.</p>
+            <p>Usa esa clave en el campo Contraseña de aplicación. No uses la contraseña normal de Gmail.</p>
+          </details>
+          <div class="stack">
+            <label>Enviar prueba a</label>
+            <div id="smtpTestUsers" class="chip-list"></div>
+            <button id="testReminderButton" type="button" class="secondary">Probar envío</button>
+            <p id="smtpTestResult" class="muted-text"></p>
+          </div>
+          <p class="muted-text">Se enviará a cada usuario un correo con sus tareas pendientes no realizadas.</p>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="modal">
+      <form id="modalForm" method="dialog" class="modal-card">
+        <div class="section-title">
+          <h2 id="modalTitle"></h2>
+          <div class="modal-header-actions">
+            <button type="submit" class="save-modal-button">Guardar</button>
+            <button type="button" id="closeModal" class="modal-close-button">Cerrar</button>
+          </div>
+        </div>
+        <div id="modalFields" class="stack"></div>
+        <p id="modalError" class="error"></p>
+        <div class="actions modal-actions">
+          <button type="button" id="deleteModal" class="danger">Eliminar</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="issueViewModal">
+      <article class="modal-card issue-view-card">
+        <div class="section-title">
+          <div>
+            <p class="eyebrow">Asunto</p>
+            <h2 id="issueViewTitle"></h2>
+          </div>
+          <div id="issueViewHeaderActions" class="modal-header-actions"><button type="button" id="closeIssueView" class="modal-close-button">Cerrar</button></div>
+        </div>
+        <div id="issueViewContent" class="issue-view-content"></div>
+      </article>
+    </dialog>
+
+    <dialog id="installPrompt">
+      <article class="modal-card install-prompt-card">
+        <div class="section-title">
+          <h2>Instala Consejo local</h2>
+          <button type="button" id="closeInstallPrompt" class="modal-close-button">Cerrar</button>
+        </div>
+        <p>Para tenerlo siempre a mano, puedes añadir esta aplicación al escritorio o a la pantalla de inicio.</p>
+        <p id="installPromptInstructions" class="install-instructions"></p>
+        <button type="button" id="dismissInstallPrompt">Entendido</button>
+      </article>
+    </dialog>
+
+    <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+    <script src="/app.js?v=20260803-3700"></script>
+  </body>
+</html>

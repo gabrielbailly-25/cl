@@ -1,0 +1,9 @@
+node_modules/
+.env
+data/*.json
+!data/.gitkeep
+npm-debug.log*
+.DS_Store
+.opencode/
+opencode.json
+.github/
