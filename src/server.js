@@ -1,12 +1,16 @@
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const { AsyncLocalStorage } = require('async_hooks');
 const express = require('express');
 const session = require('express-session');
 const multer = require('multer');
 const nodemailer = require('nodemailer');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const { Pool } = require('pg');
+const connectPgSimple = require('connect-pg-simple');
+const { put, head } = require('@vercel/blob');
 
 loadEnvFile();
 
@@ -15,18 +19,22 @@ const PORT = process.env.PORT || 3000;
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
 const DATA_FILE = path.join(DATA_DIR, 'consejo.json');
 const SESSION_SECRET = process.env.SESSION_SECRET || 'consejo-local-dev-secret-change-me';
+const DATABASE_URL = process.env.DATABASE_URL || '';
+const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || '';
+const CRON_SECRET = process.env.CRON_SECRET || '';
+const IS_VERCEL = Boolean(process.env.VERCEL);
 const INITIAL_ADMIN_EMAIL = 'gabriel.bailly@gmail.com';
 const ADMIN_EMAILS = parseList(process.env.ADMIN_EMAILS || INITIAL_ADMIN_EMAIL);
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
-const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || '/auth/google/callback';
+const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback';
 const UPLOAD_DIR = path.join(DATA_DIR, 'uploads');
 const SMTP_HOST = process.env.SMTP_HOST || '';
 const SMTP_PORT = Number(process.env.SMTP_PORT || 587);
 const SMTP_USER = process.env.SMTP_USER || '';
 const SMTP_PASS = process.env.SMTP_PASS || '';
 const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@localhost';
-const APP_URL = (process.env.APP_URL || 'https://consejo.gecoas.es').replace(/\/$/, '');
+const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || '';
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || '';
 
@@ -35,6 +43,17 @@ const DASHBOARDS = [
   { id: 'san-rafael', name: 'San Rafael' },
 ];
 const resetAttempts = new Map();
+const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;
+let databaseInitialization;
+let loadedStore;
+const dataContext = new AsyncLocalStorage();
+
+class StorageConflictError extends Error {
+  constructor() {
+    super('Los datos cambiaron mientras se guardaban. Recarga la página e inténtalo de nuevo.');
+    this.name = 'StorageConflictError';
+  }
+}
 
 function loadEnvFile() {
   const envFile = path.join(__dirname, '..', '.env');
@@ -47,11 +66,10 @@ function loadEnvFile() {
   }
 }
 
-ensureDataFile();
 startReminderScheduler();
 
 const upload = multer({
-  storage: multer.diskStorage({
+  storage: IS_VERCEL ? multer.memoryStorage() : multer.diskStorage({
     destination: (req, file, done) => {
       const dir = path.join(UPLOAD_DIR, req.dashboardId);
       fs.mkdirSync(dir, { recursive: true });
@@ -65,12 +83,23 @@ const upload = multer({
 });
 
 app.use(express.json({ limit: '2mb' }));
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: { sameSite: 'lax' },
-}));
+app.set('trust proxy', 1);
+if (IS_VERCEL && (!DATABASE_URL || !process.env.SESSION_SECRET)) {
+  app.use((req, res) => res.status(503).json({ error: 'DATABASE_URL y SESSION_SECRET son obligatorios en Vercel.' }));
+} else {
+  const sessionOptions = {
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: { sameSite: 'lax', secure: IS_VERCEL, httpOnly: true },
+  };
+  if (pool) {
+    const PgSession = connectPgSimple(session);
+    sessionOptions.store = new PgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true });
+  }
+  app.use(session(sessionOptions));
+  app.use(loadPersistentData);
+}
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -82,14 +111,18 @@ if (GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET) {
     clientID: GOOGLE_CLIENT_ID,
     clientSecret: GOOGLE_CLIENT_SECRET,
     callbackURL: GOOGLE_CALLBACK_URL,
-  }, (accessToken, refreshToken, profile, done) => {
+  }, async (accessToken, refreshToken, profile, done) => {
     const email = profile.emails && profile.emails[0] && profile.emails[0].value;
     if (!email || !getAccessibleDashboards(email).length) {
       return done(null, false, { message: 'Usuario no autorizado' });
     }
     const user = { email: email.toLowerCase(), name: profile.displayName || email, photo: profile.photos && profile.photos[0] && profile.photos[0].value || '', provider: 'google' };
-    rememberUser(user);
-    return done(null, user);
+    try {
+      await rememberUser(user);
+      return done(null, user);
+    } catch (error) {
+      return done(error);
+    }
   }));
 }
 
@@ -104,14 +137,18 @@ app.post('/api/login', (req, res) => {
   if (!localUser) {
     return res.status(401).json({ error: 'Credenciales incorrectas o usuario no autorizado' });
   }
-  req.login(localUser, (error) => {
+  req.login(localUser, async (error) => {
     if (error) return res.status(500).json({ error: 'No se pudo iniciar sesión' });
-    rememberUser(req.user || localUser);
-    res.json(buildMe(req.user || localUser));
+    try {
+      await rememberUser(req.user || localUser);
+      res.json(buildMe(req.user || localUser));
+    } catch (writeError) {
+      res.status(writeError instanceof StorageConflictError ? 409 : 503).json({ error: writeError.message || 'No se pudo iniciar sesión' });
+    }
   });
 });
 
-app.post('/api/password-reset/request', async (req, res) => {
+app.post('/api/password-reset/request', asyncHandler(async (req, res) => {
   const email = text(req.body && req.body.email).toLowerCase();
   if (!allowResetRequest(req, email)) return res.status(429).json({ error: 'Demasiadas solicitudes. Inténtalo más tarde.' });
   if (!globalSmtpConfigured()) return res.status(503).json({ error: 'La recuperación de contraseña no está disponible: configura SMTP global.' });
@@ -121,7 +158,7 @@ app.post('/api/password-reset/request', async (req, res) => {
     const store = readData();
     store.passwordResetTokens = array(store.passwordResetTokens).filter((item) => item.email !== email && new Date(item.expiresAt) > new Date());
     store.passwordResetTokens.push({ email, tokenHash: hashResetToken(token), expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString() });
-    writeData(store);
+    await writeData(store);
     try {
       await globalTransporter().sendMail({
         from: SMTP_FROM,
@@ -131,14 +168,14 @@ app.post('/api/password-reset/request', async (req, res) => {
       });
     } catch (error) {
       store.passwordResetTokens = store.passwordResetTokens.filter((item) => item.email !== email);
-      writeData(store);
+      await writeData(store);
       return res.status(503).json({ error: 'No se pudo enviar el correo de recuperación. Inténtalo más tarde.' });
     }
   }
   res.json({ ok: true, message: 'Si la cuenta está autorizada, recibirás un correo para restablecer la contraseña.' });
-});
+}));
 
-app.post('/api/password-reset/confirm', (req, res) => {
+app.post('/api/password-reset/confirm', asyncHandler(async (req, res) => {
   const token = text(req.body && req.body.token);
   const password = String(req.body && req.body.password || '');
   const confirmation = String(req.body && req.body.confirmation || '');
@@ -146,23 +183,23 @@ app.post('/api/password-reset/confirm', (req, res) => {
   if (password !== confirmation) return res.status(400).json({ error: 'Las contraseñas no coinciden.' });
   const store = readData();
   const tokenHash = hashResetToken(token);
-  const entry = array(store.passwordResetTokens).find((item) => item.tokenHash && crypto.timingSafeEqual(Buffer.from(item.tokenHash, 'hex'), Buffer.from(tokenHash, 'hex')) && new Date(item.expiresAt) > new Date());
+  const entry = array(store.passwordResetTokens).find((item) => item.tokenHash && safeEqualHex(item.tokenHash, tokenHash) && new Date(item.expiresAt) > new Date());
   if (!entry || !findEligibleUser(entry.email)) return res.status(400).json({ error: 'El enlace de recuperación no es válido o ha caducado.' });
   for (const dashboard of Object.values(store.dashboards)) {
     if (dashboard.users[entry.email]) dashboard.users[entry.email].passwordHash = hashPassword(password);
   }
   store.passwordResetTokens = array(store.passwordResetTokens).filter((item) => item !== entry);
-  writeData(store);
+  await writeData(store);
   res.json({ ok: true });
-});
+}));
 
-app.get('/auth/google', (req, res, next) => {
+app.get('/api/auth/google', (req, res, next) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) return res.status(404).send('Google OAuth no configurado');
   const nextUrl = safeNextUrl(req.query.next);
   passport.authenticate('google', { scope: ['profile', 'email'], state: nextUrl || undefined, prompt: req.query.prompt === 'select_account' ? 'select_account' : undefined })(req, res, next);
 });
 
-app.get('/auth/google/callback', (req, res, next) => {
+app.get('/api/auth/google/callback', (req, res, next) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) return res.redirect('/?login=google-disabled');
   next();
 }, passport.authenticate('google', { failureRedirect: '/?login=denied' }), (req, res) => {
@@ -178,21 +215,26 @@ app.get('/api/me', (req, res) => {
   res.json(buildMe(req.user));
 });
 
+app.get('/api/cron/reminders', requireCronSecret, asyncHandler(async (req, res) => {
+  const sent = await sendDueReminders();
+  res.json({ ok: true, sent });
+}));
+
 app.get('/api/data', requireAuth, requireDashboardAccess, (req, res) => {
   res.json(publicDashboard(req.dashboard));
 });
 
-app.put('/api/data', requireAuth, requireDashboardAccess, async (req, res) => {
+app.put('/api/data', requireAuth, requireDashboardAccess, asyncHandler(async (req, res) => {
   const store = readData();
   const previous = store.dashboards[req.dashboardId];
   const dashboard = sanitizeDashboard(req.body, previous);
   store.dashboards[req.dashboardId] = dashboard;
-  writeData(store);
+  await writeData(store);
   await notifyDashboardChanges(previous, dashboard);
   res.json(publicDashboard(dashboard));
-});
+}));
 
-app.put('/api/push-preference', requireAuth, requireDashboardAccess, (req, res) => {
+app.put('/api/push-preference', requireAuth, requireDashboardAccess, asyncHandler(async (req, res) => {
   const store = readData();
   const email = text(req.user.email).toLowerCase();
   const enabled = Boolean(req.body && req.body.enabled);
@@ -201,15 +243,15 @@ app.put('/api/push-preference', requireAuth, requireDashboardAccess, (req, res) 
     const current = dashboard.users[email] || {};
     dashboard.users[email] = { ...current, email, name: current.name || text(req.user.name) || email, pushNotifications: enabled };
   }
-  writeData(store);
+  await writeData(store);
   res.json({ enabled });
-});
+}));
 
 app.get('/api/users', requireAuth, requireDashboardAdmin, (req, res) => {
   res.json({ allowedUsers: req.dashboard.allowedUsers || [], admins: req.dashboard.admins || [], users: publicUsers(req.dashboard.users || {}) });
 });
 
-app.put('/api/users', requireAuth, requireDashboardAdmin, (req, res) => {
+app.put('/api/users', requireAuth, requireDashboardAdmin, asyncHandler(async (req, res) => {
   const store = readData();
   const dashboard = store.dashboards[req.dashboardId];
   dashboard.users = dashboard.users || {};
@@ -222,24 +264,24 @@ app.put('/api/users', requireAuth, requireDashboardAdmin, (req, res) => {
     dashboard.users[user.email] = { ...current, email: user.email, name: user.name || user.email, type: user.type };
     if (user.password) dashboard.users[user.email].passwordHash = hashPassword(user.password);
   }
-  writeData(store);
+  await writeData(store);
   res.json({ allowedUsers: users, admins: dashboard.admins, users: publicUsers(dashboard.users) });
-});
+}));
 
 app.get('/api/reminders', requireAuth, requireDashboardAdmin, (req, res) => {
   res.json({ reminder: req.dashboard.reminder || defaultReminder(), smtp: publicSmtp(req.dashboard.smtp || defaultSmtp()) });
 });
 
-app.put('/api/reminders', requireAuth, requireDashboardAdmin, (req, res) => {
+app.put('/api/reminders', requireAuth, requireDashboardAdmin, asyncHandler(async (req, res) => {
   const store = readData();
   const current = store.dashboards[req.dashboardId];
   current.reminder = sanitizeReminder(req.body.reminder || req.body);
   current.smtp = sanitizeSmtp(req.body.smtp || {}, current.smtp || defaultSmtp());
-  writeData(store);
+  await writeData(store);
   res.json({ reminder: current.reminder, smtp: publicSmtp(current.smtp) });
-});
+}));
 
-app.post('/api/reminders/test', requireAuth, requireDashboardAdmin, async (req, res) => {
+app.post('/api/reminders/test', requireAuth, requireDashboardAdmin, asyncHandler(async (req, res) => {
   const email = text(req.body && req.body.email).toLowerCase();
   const user = knownDashboardUsers(req.dashboard).find((item) => item.email === email);
   if (!email || !user) return res.status(400).json({ error: 'Selecciona un usuario válido' });
@@ -255,27 +297,56 @@ app.post('/api/reminders/test', requireAuth, requireDashboardAdmin, async (req, 
     html: buildTasksEmailHtml(user.name, req.dashboard.name, tasks),
   });
   res.json({ ok: true });
-});
+}));
 
-app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('file'), (req, res) => {
+app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se ha recibido ningún archivo' });
+  let fileName = req.file.filename;
+  if (IS_VERCEL) {
+    if (!BLOB_READ_WRITE_TOKEN) return res.status(503).json({ error: 'BLOB_READ_WRITE_TOKEN es obligatorio para adjuntar archivos en Vercel.' });
+    fileName = `uploads/${req.dashboardId}/${Date.now()}-${id()}-${safeFileName(req.file.originalname)}`;
+    await put(fileName, req.file.buffer, {
+      access: 'public',
+      addRandomSuffix: false,
+      contentType: req.file.mimetype || 'application/octet-stream',
+      token: BLOB_READ_WRITE_TOKEN,
+    });
+  }
   res.json({
     type: 'file',
     label: text(req.body.label) || req.file.originalname,
     originalName: req.file.originalname,
-    fileName: req.file.filename,
-    url: `/api/uploads/${encodeURIComponent(req.dashboardId)}/${encodeURIComponent(req.file.filename)}`,
+    fileName,
+    url: `/api/uploads/${encodeURIComponent(req.dashboardId)}/${encodeURIComponent(fileName)}`,
   });
-});
+}));
 
-app.get('/api/uploads/:dashboardId/:fileName', requireAuth, (req, res) => {
+app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (req, res) => {
   const dashboard = getDashboardForUser(req.user.email, req.params.dashboardId);
   if (!dashboard) return res.status(403).send('No autorizado');
+  if (IS_VERCEL) {
+    if (!BLOB_READ_WRITE_TOKEN) return res.status(503).send('El almacenamiento de adjuntos no está configurado.');
+    const fileName = req.params.fileName;
+    if (!fileName.startsWith(`uploads/${dashboard.id}/`) || fileName.includes('..')) return res.status(400).send('Archivo no válido');
+    try {
+      const blob = await head(fileName, { token: BLOB_READ_WRITE_TOKEN });
+      return res.redirect(302, blob.url);
+    } catch (error) {
+      return res.status(404).send('Archivo no encontrado');
+    }
+  }
   const fileName = path.basename(req.params.fileName);
   res.sendFile(path.join(UPLOAD_DIR, dashboard.id, fileName));
-});
+}));
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
+
+app.use((error, req, res, next) => {
+  if (error instanceof StorageConflictError) return res.status(409).json({ error: error.message });
+  if (error instanceof multer.MulterError) return res.status(400).json({ error: error.message });
+  console.error('Error de aplicación:', error);
+  return res.status(503).json({ error: 'El servicio no está disponible temporalmente.' });
+});
 
 if (require.main === module) {
   app.listen(PORT, () => console.log(`Consejo escuchando en puerto ${PORT}`));
@@ -287,8 +358,35 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function asyncHandler(handler) {
+  return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
+
+function requireCronSecret(req, res, next) {
+  if (!CRON_SECRET) return res.status(503).json({ error: 'CRON_SECRET no está configurado.' });
+  const token = String(req.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  const expected = Buffer.from(CRON_SECRET);
+  const received = Buffer.from(token);
+  if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  return next();
+}
+
+async function loadPersistentData(req, res, next) {
+  if (!req.path.startsWith('/api') && !req.path.startsWith('/auth')) return next();
+  try {
+    const store = await loadData();
+    return dataContext.run({ store }, next);
+  } catch (error) {
+    console.error('No se pudo cargar el almacenamiento persistente:', error.message);
+    return res.status(503).json({ error: 'No se pudo conectar con el almacenamiento persistente.' });
+  }
+}
+
 function requireDashboardAccess(req, res, next) {
-  const dashboardId = text(req.query.dashboard || req.body.dashboard || req.body.id);
+  const body = req.body || {};
+  const dashboardId = text(req.query.dashboard || body.dashboard || body.id);
   const dashboard = getDashboardForUser(req.user.email, dashboardId);
   if (!dashboard) return res.status(403).json({ error: 'Reunión no autorizada' });
   req.dashboardId = dashboard.id;
@@ -338,27 +436,66 @@ function isSystemAdmin(email) {
   return ADMIN_EMAILS.includes(String(email || '').toLowerCase());
 }
 
-function ensureDataFile() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) writeData(initialStore());
-}
-
 function readData() {
-  ensureDataFileWithoutRecursion();
-  const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  const normalized = normalizeStore(raw);
-  if (JSON.stringify(raw) !== JSON.stringify(normalized)) writeData(normalized);
-  return normalized;
+  const context = dataContext.getStore();
+  if (context && context.store) return context.store;
+  if (!loadedStore) throw new Error('El estado no se ha cargado');
+  return loadedStore;
 }
 
-function ensureDataFileWithoutRecursion() {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify(initialStore(), null, 2));
+async function loadData() {
+  if (!DATABASE_URL) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    if (!fs.existsSync(DATA_FILE)) fs.writeFileSync(DATA_FILE, JSON.stringify(initialStore(), null, 2));
+    const raw = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    const normalized = normalizeStore(raw);
+    if (JSON.stringify(raw) !== JSON.stringify(normalized)) fs.writeFileSync(DATA_FILE, JSON.stringify(normalized, null, 2));
+    loadedStore = normalized;
+    return loadedStore;
+  }
+  await initializeDatabase();
+  const result = await pool.query('SELECT data, revision FROM consejo_state WHERE id = true');
+  const normalized = normalizeStore(result.rows[0].data);
+  Object.defineProperty(normalized, '_revision', { value: Number(result.rows[0].revision), writable: true, enumerable: false });
+  loadedStore = normalized;
+  return loadedStore;
 }
 
-function writeData(data) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+async function initializeDatabase() {
+  if (!databaseInitialization) {
+    databaseInitialization = (async () => {
+      await pool.query(`CREATE TABLE IF NOT EXISTS consejo_state (
+        id boolean PRIMARY KEY DEFAULT true CHECK (id),
+        data jsonb NOT NULL,
+        revision bigint NOT NULL DEFAULT 1,
+        updated_at timestamptz NOT NULL DEFAULT now()
+      )`);
+      await pool.query(
+        'INSERT INTO consejo_state (id, data) VALUES (true, $1::jsonb) ON CONFLICT (id) DO NOTHING',
+        [JSON.stringify(initialStore())],
+      );
+    })().catch((error) => {
+      databaseInitialization = null;
+      throw error;
+    });
+  }
+  return databaseInitialization;
+}
+
+async function writeData(data) {
+  if (!DATABASE_URL) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
+    loadedStore = data;
+    return;
+  }
+  const result = await pool.query(
+    'UPDATE consejo_state SET data = $1::jsonb, revision = revision + 1, updated_at = now() WHERE id = true AND revision = $2 RETURNING revision',
+    [JSON.stringify(data), data._revision],
+  );
+  if (!result.rowCount) throw new StorageConflictError();
+  data._revision = Number(result.rows[0].revision);
+  loadedStore = data;
 }
 
 function initialStore() {
@@ -524,7 +661,7 @@ function sanitizeUsers(users, fallback = {}) {
   }).filter(([email]) => email));
 }
 
-function rememberUser(user) {
+async function rememberUser(user) {
   const email = text(user.email).toLowerCase();
   if (!email) return;
   const store = readData();
@@ -533,31 +670,50 @@ function rememberUser(user) {
       dashboard.users[email] = { ...(dashboard.users[email] || {}), email, name: dashboard.users[email] && dashboard.users[email].name || text(user.name) || email, pushNotifications: Boolean(dashboard.users[email] && dashboard.users[email].pushNotifications), ...(text(user.photo) ? { photo: text(user.photo) } : {}) };
     }
   }
-  writeData(store);
+  await writeData(store);
 }
 
 function startReminderScheduler() {
-  if (process.env.NODE_ENV === 'test') return;
-  setInterval(sendDueReminders, 60 * 1000).unref();
+  if (process.env.NODE_ENV === 'test' || IS_VERCEL) return;
+  setInterval(() => {
+    sendDueReminders().catch((error) => console.error('No se pudieron enviar los recordatorios:', error.message));
+  }, 60 * 1000).unref();
 }
 
 async function sendDueReminders() {
-  const now = new Date();
-  const day = String(now.getDay());
-  const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-  const today = now.toISOString().slice(0, 10);
-  const store = readData();
-  let changed = false;
-  for (const dashboard of Object.values(store.dashboards)) {
-    const reminder = dashboard.reminder || defaultReminder();
-    if (!reminder.enabled || reminder.time !== time || !reminder.days.includes(day) || reminder.lastSentDate === today) continue;
-    const sent = await sendDashboardReminders(dashboard);
-    if (!sent) continue;
-    reminder.lastSentDate = today;
-    dashboard.reminder = reminder;
-    changed = true;
+  let lockClient;
+  if (DATABASE_URL) {
+    lockClient = await pool.connect();
+    const lock = await lockClient.query('SELECT pg_try_advisory_lock($1) AS locked', [83420061]);
+    if (!lock.rows[0].locked) {
+      lockClient.release();
+      return 0;
+    }
   }
-  if (changed) writeData(store);
+  try {
+    const store = await loadData();
+    const now = new Date();
+    const day = String(now.getDay());
+    const time = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    const today = now.toISOString().slice(0, 10);
+    let sentCount = 0;
+    for (const dashboard of Object.values(store.dashboards)) {
+      const reminder = dashboard.reminder || defaultReminder();
+      if (!reminder.enabled || reminder.time !== time || !reminder.days.includes(day) || reminder.lastSentDate === today) continue;
+      const sent = await sendDashboardReminders(dashboard);
+      if (!sent) continue;
+      reminder.lastSentDate = today;
+      dashboard.reminder = reminder;
+      await writeData(store);
+      sentCount += 1;
+    }
+    return sentCount;
+  } finally {
+    if (lockClient) {
+      await lockClient.query('SELECT pg_advisory_unlock($1)', [83420061]);
+      lockClient.release();
+    }
+  }
 }
 
 async function sendDashboardReminders(dashboard) {
@@ -603,6 +759,12 @@ function globalTransporter() {
 
 function hashResetToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function safeEqualHex(left, right) {
+  const a = Buffer.from(text(left), 'hex');
+  const b = Buffer.from(text(right), 'hex');
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
 function findEligibleUser(email) {
@@ -781,6 +943,11 @@ function issueUrl(dashboardId, issueId) {
 function safeNextUrl(value) {
   const nextUrl = text(value);
   return nextUrl.startsWith('/?') ? nextUrl : '';
+}
+
+function safeFileName(value) {
+  const name = path.basename(String(value || 'archivo')).replace(/[^A-Za-z0-9._-]/g, '-').replace(/-+/g, '-');
+  return name.slice(0, 120) || 'archivo';
 }
 
 function formatDate(value) {

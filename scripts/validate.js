@@ -6,7 +6,9 @@ const required = [
   'public/index.html',
   'public/styles.css',
   'public/app.js',
-  'Dockerfile',
+  'api/index.js',
+  'api/[...path].js',
+  'vercel.json',
 ];
 
 for (const file of required) {
@@ -18,4 +20,5 @@ for (const file of required) {
 }
 
 require('../src/server');
+JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'vercel.json'), 'utf8'));
 console.log('Validación completada');

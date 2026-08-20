@@ -5,14 +5,18 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "build": "node scripts/validate.js"
+    "build": "node scripts/validate.js",
+    "migrate:data": "node scripts/migrate-data.js"
   },
   "dependencies": {
+    "@vercel/blob": "^1.0.2",
+    "connect-pg-simple": "^10.0.0",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
     "multer": "^2.2.0",
     "nodemailer": "^9.0.3",
     "passport": "^0.7.0",
-    "passport-google-oauth20": "^2.0.0"
+    "passport-google-oauth20": "^2.0.0",
+    "pg": "^8.13.1"
   }
 }

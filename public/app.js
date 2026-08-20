@@ -85,7 +85,7 @@ async function loadSession() {
 
 function showLogin() {
   const next = `${window.location.pathname}${window.location.search}`;
-  $('#googleLogin').href = `/auth/google?next=${encodeURIComponent(next)}`;
+  $('#googleLogin').href = `/api/auth/google?next=${encodeURIComponent(next)}`;
   $('#login').classList.remove('hidden');
   $('#app').classList.add('hidden');
 }
@@ -191,7 +191,7 @@ function renderAccountMenu() {
   }
   const switchAccount = $('#switchGoogleAccount');
   switchAccount.classList.toggle('hidden', state.me.provider !== 'google' || !state.config.googleEnabled);
-  switchAccount.href = `/auth/google?prompt=select_account&next=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`;
+  switchAccount.href = `/api/auth/google?prompt=select_account&next=${encodeURIComponent(`${window.location.pathname}${window.location.search}`)}`;
 }
 
 function pushNotificationsEnabled() {
