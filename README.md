@@ -43,7 +43,7 @@ Los adjuntos se suben con memoria a Vercel Blob y en los datos sólo se entrega 
 
 ### Recordatorios en Vercel
 
-El intervalo en memoria sólo se ejecuta en local. En Vercel, el cron llama a `GET /api/cron/reminders` y Vercel envía `Authorization: Bearer $CRON_SECRET`; el endpoint rechaza peticiones sin ese secreto. El cron está configurado cada minuto para poder respetar la hora y el día elegidos en la aplicación. Los cron de un minuto requieren un plan de Vercel que los admita; en Hobby el mínimo es diario y entonces no se pueden garantizar horas configurables ni precisión al minuto. La comparación se realiza en UTC en Vercel y el envío puede retrasarse unos minutos por la plataforma.
+El intervalo en memoria sólo se ejecuta en local. En Vercel, el cron llama a `GET /api/cron/reminders` y Vercel envía `Authorization: Bearer $CRON_SECRET`; el endpoint rechaza peticiones sin ese secreto. En Hobby se ejecuta una vez al día a las 08:00 UTC y envía los recordatorios activados para ese día, sin respetar la hora elegida en la aplicación. Un cron cada minuto, que sí respeta la hora configurada, requiere Vercel Pro. El envío puede retrasarse unos minutos por la plataforma.
 
 Reuniones configuradas:
 

@@ -216,7 +216,7 @@ app.get('/api/me', (req, res) => {
 });
 
 app.get('/api/cron/reminders', requireCronSecret, asyncHandler(async (req, res) => {
-  const sent = await sendDueReminders();
+  const sent = await sendDueReminders({ ignoreTime: IS_VERCEL });
   res.json({ ok: true, sent });
 }));
 
@@ -680,7 +680,7 @@ function startReminderScheduler() {
   }, 60 * 1000).unref();
 }
 
-async function sendDueReminders() {
+async function sendDueReminders({ ignoreTime = false } = {}) {
   let lockClient;
   if (DATABASE_URL) {
     lockClient = await pool.connect();
@@ -699,7 +699,7 @@ async function sendDueReminders() {
     let sentCount = 0;
     for (const dashboard of Object.values(store.dashboards)) {
       const reminder = dashboard.reminder || defaultReminder();
-      if (!reminder.enabled || reminder.time !== time || !reminder.days.includes(day) || reminder.lastSentDate === today) continue;
+      if (!reminder.enabled || (!ignoreTime && reminder.time !== time) || !reminder.days.includes(day) || reminder.lastSentDate === today) continue;
       const sent = await sendDashboardReminders(dashboard);
       if (!sent) continue;
       reminder.lastSentDate = today;
