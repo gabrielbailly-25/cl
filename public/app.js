@@ -19,8 +19,8 @@ const statuses = ['nuevo', 'en progreso', 'realizado'];
 const fieldTypes = ['texto', 'textoLargo', 'fecha', 'desplegable', 'check', 'url', 'documento'];
 const fieldTypeLabels = { texto: 'Texto', textoLargo: 'Texto largo', fecha: 'Fecha', desplegable: 'Desplegable', check: 'Check', url: 'URL', documento: 'Documento' };
 const dashboardLogos = {
-  'san-miguel': '/images/app-icon.png?v=20260820',
-  'san-rafael': '/images/app-icon.png?v=20260820',
+  'san-miguel': '/images/app-icon.png?v=20260822',
+  'san-rafael': '/images/app-icon.png?v=20260822',
 };
 const dashboardThemes = {
   'san-miguel': { brand: '#e94e24', accent: '#f58a25', glow: '#ffe2cf' },

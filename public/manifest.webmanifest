@@ -1,0 +1,17 @@
+{
+  "name": "Consejo local",
+  "short_name": "Consejo local",
+  "description": "Gestión de reuniones, asuntos, acuerdos y tareas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff4ec",
+  "theme_color": "#e94e24",
+  "icons": [
+    {
+      "src": "/images/app-icon.png?v=20260822",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

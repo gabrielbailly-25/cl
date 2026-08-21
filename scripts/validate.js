@@ -6,6 +6,7 @@ const required = [
   'public/index.html',
   'public/styles.css',
   'public/app.js',
+  'public/manifest.webmanifest',
   'api/index.js',
   'api/[...path].js',
   'vercel.json',
