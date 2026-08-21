@@ -566,7 +566,8 @@ function renderIssueAttachments(attachments) {
   if (!attachments.length) return '<p class="muted-text">No hay documentos adjuntos.</p>';
   return `<div class="attachment-list">${attachments.map((attachment) => {
     const label = attachment.label || attachment.originalName || attachment.url || 'Documento';
-    return `<a class="attachment-link" href="${escapeAttr(attachment.url)}" target="_blank" rel="noopener" download>${escapeHtml(label)}<span>Descargar</span></a>`;
+    const isFile = attachment.type === 'file' || attachment.fileName;
+    return `<a class="attachment-link" href="${escapeAttr(attachment.url)}" target="_blank" rel="noopener"${isFile ? ' download' : ''}>${escapeHtml(label)}<span>${isFile ? 'Descargar' : 'Visitar'}</span></a>`;
   }).join('')}</div>`;
 }
 
