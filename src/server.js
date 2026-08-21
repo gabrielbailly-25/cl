@@ -306,7 +306,7 @@ app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('fil
     if (!BLOB_READ_WRITE_TOKEN) return res.status(503).json({ error: 'BLOB_READ_WRITE_TOKEN es obligatorio para adjuntar archivos en Vercel.' });
     fileName = `uploads/${req.dashboardId}/${Date.now()}-${id()}-${safeFileName(req.file.originalname)}`;
     await put(fileName, req.file.buffer, {
-      access: 'public',
+      access: 'private',
       addRandomSuffix: false,
       contentType: req.file.mimetype || 'application/octet-stream',
       token: BLOB_READ_WRITE_TOKEN,
@@ -330,7 +330,7 @@ app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (
     if (!fileName.startsWith(`uploads/${dashboard.id}/`) || fileName.includes('..')) return res.status(400).send('Archivo no válido');
     try {
       const blob = await head(fileName, { token: BLOB_READ_WRITE_TOKEN });
-      return res.redirect(302, blob.url);
+      return res.redirect(302, blob.downloadUrl);
     } catch (error) {
       return res.status(404).send('Archivo no encontrado');
     }

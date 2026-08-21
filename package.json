@@ -9,7 +9,7 @@
     "migrate:data": "node scripts/migrate-data.js"
   },
   "dependencies": {
-    "@vercel/blob": "^1.0.2",
+    "@vercel/blob": "^2.8.0",
     "connect-pg-simple": "^10.0.0",
     "express": "^4.19.2",
     "express-session": "^1.18.0",

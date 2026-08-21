@@ -39,7 +39,7 @@ Cada administrador puede añadir usuarios y otorgarles acceso solamente a su reu
 
 La primera conexión a Neon crea `consejo_state` y las dos reuniones iniciales. El estado completo se almacena como JSONB y cada escritura usa una revisión optimista: si dos cambios coinciden, uno recibe HTTP 409 para que se recargue la página en vez de sobrescribir el otro. `connect-pg-simple` crea y utiliza la tabla `user_sessions`.
 
-Los adjuntos se suben con memoria a Vercel Blob y en los datos sólo se entrega la URL autenticada `/api/uploads/...`. El endpoint comprueba la sesión y el acceso a la reunión antes de redirigir a Blob. Vercel Blob de este tipo es público por diseño: quien conserve la URL final de Blob podrá abrirla, por lo que no se debe compartir y no se persiste ni se muestra como enlace directo en la aplicación.
+Los adjuntos se suben con memoria a un Vercel Blob privado y en los datos sólo se entrega la URL autenticada `/api/uploads/...`. El endpoint comprueba la sesión y el acceso a la reunión antes de generar una URL de descarga temporal. No se persiste ni se muestra una URL directa de Blob.
 
 ### Recordatorios en Vercel
 
