@@ -264,6 +264,18 @@
       </article>
     </dialog>
 
+    <aside id="appInstallNotice" class="app-install-notice hidden" aria-live="polite">
+      <div>
+        <strong id="appInstallNoticeTitle"></strong>
+        <p id="appInstallNoticeText"></p>
+      </div>
+      <div class="app-install-notice-actions">
+        <button id="installAppButton" type="button" class="hidden">Instalar</button>
+        <button id="enablePushButton" type="button" class="hidden">Activar</button>
+        <button id="closeAppInstallNotice" type="button" class="icon-button" aria-label="Cerrar aviso">Cerrar</button>
+      </div>
+    </aside>
+
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
     <script src="/app.js?v=20260803-3700"></script>

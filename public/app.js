@@ -65,6 +65,9 @@ function bindEvents() {
   $('#closeIssueView').addEventListener('click', () => issueViewModal.close());
   $('#closeInstallPrompt').addEventListener('click', closeInstallPrompt);
   $('#dismissInstallPrompt').addEventListener('click', closeInstallPrompt);
+  $('#installAppButton').addEventListener('click', openInstallPrompt);
+  $('#enablePushButton').addEventListener('click', enablePushNotifications);
+  $('#closeAppInstallNotice').addEventListener('click', () => $('#appInstallNotice').classList.add('hidden'));
   $('#deleteModal').addEventListener('click', deleteCurrent);
   $('#modalForm').addEventListener('submit', saveCurrent);
   $('#pushNotifications').addEventListener('change', savePushPreference);
@@ -120,7 +123,7 @@ function showApp() {
   render();
   initializePush();
   openLinkedTask();
-  showInstallPrompt();
+  renderAppInstallNotice();
 }
 
 function applyDashboardTheme() {
@@ -131,15 +134,11 @@ function applyDashboardTheme() {
   root.setProperty('--glow', theme.glow);
 }
 
-function showInstallPrompt() {
-  const storageKey = 'consejo-local-install-prompt-seen';
-  const installed = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-  try {
-    if (installed || window.localStorage.getItem(storageKey)) return;
-    window.localStorage.setItem(storageKey, 'true');
-  } catch (error) {
-    if (installed) return;
-  }
+function appIsInstalled() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+}
+
+function openInstallPrompt() {
   const agent = window.navigator.userAgent;
   const ios = /iPad|iPhone|iPod/.test(agent) || (agent.includes('Macintosh') && window.navigator.maxTouchPoints > 1);
   const instructions = ios
@@ -159,6 +158,21 @@ function showInstallPrompt() {
     prompt.classList.add('fallback-modal');
     prompt.setAttribute('open', '');
   }
+}
+
+function renderAppInstallNotice() {
+  const needsInstall = !appIsInstalled();
+  const needsPush = Boolean(state.config.oneSignalAppId) && !pushNotificationsEnabled();
+  const notice = $('#appInstallNotice');
+  if (!needsInstall && !needsPush) return notice.classList.add('hidden');
+  const actions = [];
+  if (needsInstall) actions.push('instalar Consejo local');
+  if (needsPush) actions.push('activar las notificaciones');
+  $('#appInstallNoticeTitle').textContent = 'Completa tu acceso';
+  $('#appInstallNoticeText').textContent = `Te recomendamos ${actions.join(' y ')}.`;
+  $('#installAppButton').classList.toggle('hidden', !needsInstall);
+  $('#enablePushButton').classList.toggle('hidden', !needsPush);
+  notice.classList.remove('hidden');
 }
 
 function closeInstallPrompt() {
@@ -238,10 +252,17 @@ async function savePushPreference(event) {
     } else if (oneSignal) await oneSignal.User.PushSubscription.optOut();
     await api(`/api/push-preference?dashboard=${encodeURIComponent(state.activeDashboard)}`, { method: 'PUT', body: { enabled } });
     state.data.users[state.me.email] = { ...(state.data.users[state.me.email] || {}), email: state.me.email, name: displayUser(), pushNotifications: enabled };
+    renderAppInstallNotice();
   } catch (error) {
     event.target.checked = !enabled;
     showToast(error.message);
   }
+}
+
+async function enablePushNotifications() {
+  const input = $('#pushNotifications');
+  input.checked = true;
+  await savePushPreference({ target: input });
 }
 
 function showAdminTab(tab) {

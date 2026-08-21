@@ -81,6 +81,26 @@ button:hover, .google-button:hover { filter: brightness(1.08); }
   transform: translateX(-50%);
   z-index: 20;
 }
+.app-install-notice {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-left: .35rem solid var(--brand);
+  border-radius: 1rem;
+  bottom: 1.25rem;
+  box-shadow: var(--shadow);
+  display: flex;
+  gap: 1rem;
+  max-width: min(30rem, calc(100vw - 2rem));
+  padding: .9rem 1rem;
+  position: fixed;
+  right: 1.25rem;
+  z-index: 15;
+}
+.app-install-notice strong { color: var(--brand); }
+.app-install-notice p { color: var(--muted); line-height: 1.4; margin: .2rem 0 0; }
+.app-install-notice-actions { align-items: center; display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
+.app-install-notice-actions button { min-height: 2rem; }
 
 .login-view {
   min-height: 100vh;
@@ -864,6 +884,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .hero .brand-title p { font-size: .78rem; line-height: 1.35; margin: .25rem 0 0; }
   .hero .dashboard-title-row { gap: .15rem; }
   .hero .dashboard-title-row .icon-button { padding: .1rem .2rem; }
+  .app-install-notice { align-items: flex-start; bottom: 1rem; left: 1rem; right: 1rem; }
   .hero .user-box { display: contents; }
   .hero .account-menu { align-self: start; grid-column: 2; grid-row: 1; }
   .hero .account-menu-options { min-width: min(18rem, calc(100vw - 2rem)); }
