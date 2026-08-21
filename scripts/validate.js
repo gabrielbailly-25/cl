@@ -10,6 +10,7 @@ const required = [
   'api/index.js',
   'api/[...path].js',
   'api/auth/[...path].js',
+  'api/auth/google/callback.js',
   'vercel.json',
 ];
 
