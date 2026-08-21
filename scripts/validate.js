@@ -9,6 +9,7 @@ const required = [
   'public/manifest.webmanifest',
   'api/index.js',
   'api/[...path].js',
+  'api/auth/[...path].js',
   'vercel.json',
 ];
 
