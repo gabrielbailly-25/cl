@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "build": "node scripts/validate.js",
-    "migrate:data": "node scripts/migrate-data.js"
+    "migrate:data": "node scripts/migrate-data.js",
+    "import:agreements": "node scripts/import-agreements.js"
   },
   "dependencies": {
     "@vercel/blob": "^2.8.0",

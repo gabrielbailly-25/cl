@@ -15,6 +15,7 @@ const required = [
   'api/password-reset/request.js',
   'api/password-reset/confirm.js',
   'api/uploads/[...path].js',
+  'scripts/import-agreements.js',
   'vercel.json',
 ];
 

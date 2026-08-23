@@ -169,6 +169,7 @@
         <div class="tabs">
           <button id="usersTabButton" class="secondary" type="button">Usuarios</button>
           <button id="remindersTabButton" class="secondary" type="button">Correos de tareas</button>
+          <button id="appearanceTabButton" class="secondary" type="button">Vista</button>
         </div>
         <div id="usersTab" class="admin-tab stack">
           <div class="section-title compact-title">
@@ -218,6 +219,14 @@
             <p id="smtpTestResult" class="muted-text"></p>
           </div>
           <p class="muted-text">Se enviará a cada usuario un correo con sus tareas pendientes no realizadas.</p>
+        </div>
+        <div id="appearanceTab" class="admin-tab stack hidden">
+          <div class="section-title compact-title">
+            <h3>Secciones visibles</h3>
+            <button id="saveAppearanceButton" type="button">Guardar vista</button>
+          </div>
+          <label class="check-label"><input id="showLinksSection" type="checkbox"> Mostrar Enlaces de uso frecuente</label>
+          <label class="check-label"><input id="showAgreementsSection" type="checkbox"> Mostrar Acuerdos</label>
         </div>
       </section>
     </main>

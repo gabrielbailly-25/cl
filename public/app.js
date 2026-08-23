@@ -60,6 +60,8 @@ function bindEvents() {
   $('#testReminderButton').addEventListener('click', testReminderEmail);
   $('#usersTabButton').addEventListener('click', () => showAdminTab('users'));
   $('#remindersTabButton').addEventListener('click', () => showAdminTab('reminders'));
+  $('#appearanceTabButton').addEventListener('click', () => showAdminTab('appearance'));
+  $('#saveAppearanceButton').addEventListener('click', saveAppearance);
   $('#dashboardSelector').addEventListener('change', switchDashboard);
   $('#closeModal').addEventListener('click', closeEditModal);
   $('#closeIssueView').addEventListener('click', () => issueViewModal.close());
@@ -119,6 +121,7 @@ function showApp() {
   document.querySelectorAll('.section-export-button').forEach((button) => button.classList.toggle('hidden', !activeDashboard().isAdmin));
   renderUserRows();
   renderReminderSettings();
+  renderAppearanceSettings();
   renderSmtpTestUsers();
   render();
   initializePush();
@@ -268,6 +271,7 @@ async function enablePushNotifications() {
 function showAdminTab(tab) {
   $('#usersTab').classList.toggle('hidden', tab !== 'users');
   $('#remindersTab').classList.toggle('hidden', tab !== 'reminders');
+  $('#appearanceTab').classList.toggle('hidden', tab !== 'appearance');
 }
 
 function renderDashboardLogo() {
@@ -386,6 +390,7 @@ function render() {
   renderSectionOrder();
   renderSectionTitles();
   renderCollapsedSections();
+  renderHiddenSections();
 }
 
 function renderSectionTitles() {
@@ -405,6 +410,14 @@ function renderCollapsedSections() {
       button.textContent = isCollapsed ? '▶️' : '🔽';
       button.setAttribute('aria-label', `${isCollapsed ? 'Mostrar' : 'Ocultar'} sección`);
     }
+  });
+}
+
+function renderHiddenSections() {
+  const hidden = new Set(state.data.hiddenSections || []);
+  ['links', 'agreements'].forEach((sectionId) => {
+    const section = document.querySelector(`[data-section-id="${sectionId}"]`);
+    if (section) section.classList.toggle('hidden', hidden.has(sectionId));
   });
 }
 
@@ -1482,6 +1495,22 @@ function renderReminderSettings() {
   document.querySelectorAll('[name="reminderDay"]').forEach((input) => { input.checked = (reminder.days || []).includes(input.value); });
 }
 
+function renderAppearanceSettings() {
+  const hidden = new Set(state.data.hiddenSections || []);
+  $('#showLinksSection').checked = !hidden.has('links');
+  $('#showAgreementsSection').checked = !hidden.has('agreements');
+}
+
+async function saveAppearance() {
+  state.data.hiddenSections = [
+    ...(!$('#showLinksSection').checked ? ['links'] : []),
+    ...(!$('#showAgreementsSection').checked ? ['agreements'] : []),
+  ];
+  await persist();
+  renderAppearanceSettings();
+  showToast('Vista guardada correctamente');
+}
+
 async function saveReminder(options = {}) {
   const reminder = {
     enabled: $('#reminderEnabled').checked,
@@ -1916,6 +1945,7 @@ function normalizeData(data) {
   data.users = data.users || {};
   data.layoutOrder = data.layoutOrder || [];
   data.collapsedSections = data.collapsedSections || [];
+  data.hiddenSections = data.hiddenSections || [];
   data.sectionTitles = data.sectionTitles || {};
   data.issues = (data.issues || []).map((issue) => ({ ...issue, tasks: issue.tasks || [], comments: issue.comments || [], readBy: normalizeReaders(issue.readBy) }));
   data.textBlocks = (data.textBlocks || []).map((block) => ({ ...block, title: block.title || 'Texto', content: block.content || '' }));

@@ -607,6 +607,7 @@ function sanitizeDashboard(input, fallback) {
     })),
     layoutOrder: parseOptions(input.layoutOrder || fallback.layoutOrder || []),
     collapsedSections: parseOptions(input.collapsedSections || fallback.collapsedSections || []),
+    hiddenSections: parseOptions(input.hiddenSections || fallback.hiddenSections || []).filter((id) => ['links', 'agreements'].includes(id)),
     sectionTitles: sanitizeSectionTitles(input.sectionTitles || fallback.sectionTitles || {}),
   };
 }
