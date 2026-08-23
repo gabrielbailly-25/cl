@@ -590,6 +590,14 @@ function sanitizeDashboard(input, fallback) {
       date: text(item.date),
       title: text(item.title),
       description: richText(item.description),
+      attachments: array(item.attachments).map((attachment) => ({
+        id: text(attachment.id) || id(),
+        type: ['url', 'file'].includes(attachment.type) ? attachment.type : 'url',
+        label: text(attachment.label),
+        url: text(attachment.url),
+        originalName: text(attachment.originalName),
+        fileName: text(attachment.fileName),
+      })),
     })),
     textBlocks: array(input.textBlocks).map((block) => ({
       id: text(block.id) || id(),

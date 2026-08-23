@@ -803,21 +803,23 @@ function renderAgreements() {
     { key: 'date', label: 'Fecha del acuerdo' },
     { key: 'title', label: 'Título' },
     { key: 'description', label: 'Descripción' },
+    { key: 'attachments', label: 'Adjuntos' },
   ];
-  const rows = filteredRows('agreements', state.data.agreements, columns);
+  const rows = filteredRows('agreements', state.data.agreements, columns, (agreement, key) => key === 'attachments' ? (agreement.attachments || []).map((attachment) => attachment.label || attachment.url).join(' ') : agreement[key]);
   const body = $('#agreementsBody');
   body.innerHTML = '';
   ensureFilterBefore(body.closest('.table-wrap'), 'agreements');
   renderSortableHeader(body.closest('table'), 'agreements', columns);
   if (!rows.length) {
-    body.innerHTML = '<tr><td colspan="4" class="empty">No hay acuerdos que coincidan.</td></tr>';
+    body.innerHTML = '<tr><td colspan="5" class="empty">No hay acuerdos que coincidan.</td></tr>';
     return;
   }
   rows.forEach((agreement) => {
     const row = document.createElement('tr');
     row.className = isRecentRow('agreements', agreement.id) ? 'recent-row' : '';
     row.dataset.tableRowId = agreement.id;
-    row.innerHTML = `<td>${escapeHtml(formatDate(agreement.date))}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td>`;
+    const attachments = agreement.attachments && agreement.attachments.length ? renderIssueAttachments(agreement.attachments) : '';
+    row.innerHTML = `<td>${escapeHtml(formatDate(agreement.date))}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
     const actions = document.createElement('div');
     actions.className = 'link-actions';
     actions.innerHTML = tableRowDragHandle();
@@ -829,7 +831,7 @@ function renderAgreements() {
 }
 
 function exportAgreementsCsv() {
-  downloadCsv('acuerdos.csv', ['Fecha del acuerdo', 'Título', 'Descripción'], (state.data.agreements || []).map((agreement) => [formatDate(agreement.date), agreement.title, plainText(agreement.description)]));
+  downloadCsv('acuerdos.csv', ['Fecha del acuerdo', 'Título', 'Descripción', 'Adjuntos'], (state.data.agreements || []).map((agreement) => [formatDate(agreement.date), agreement.title, plainText(agreement.description), (agreement.attachments || []).map((attachment) => attachment.url).join(', ')]));
 }
 
 function renderTextBlocks() {
@@ -1278,7 +1280,7 @@ function openTaskModal(task) {
 }
 
 function openAgreementModal(agreement = null) {
-  openModal({ type: 'agreement', id: agreement && agreement.id, title: agreement ? 'Editar acuerdo' : 'Añadir acuerdo', fields: [inputField('date', 'Fecha del acuerdo', agreement ? agreement.date : today(), 'date'), inputField('title', 'Título', agreement && agreement.title), richTextField('description', 'Descripción', agreement && agreement.description)], deletable: Boolean(agreement) });
+  openModal({ type: 'agreement', id: agreement && agreement.id, title: agreement ? 'Editar acuerdo' : 'Añadir acuerdo', fields: [inputField('date', 'Fecha del acuerdo', agreement ? agreement.date : today(), 'date'), inputField('title', 'Título', agreement && agreement.title), richTextField('description', 'Descripción', agreement && agreement.description), attachmentsField(agreement && agreement.attachments)], deletable: Boolean(agreement) });
 }
 
 function openSectionTitleModal(sectionId) {
@@ -1353,7 +1355,7 @@ async function saveCurrent(event) {
   if (state.modal.type === 'link') upsert(state.data.frequentLinks, { id, title: values.title, url: values.url });
   if (state.modal.type === 'issue') upsert(state.data.issues, { id, date: values.date, title: values.title, addedBy: values.addedBy, status: values.status, description: values.description, attachments: values.attachments, tasks: values.tasks, comments: state.modal.comments || [], readBy: state.modal.readBy || [] });
   if (state.modal.type === 'task') updateTask(state.modal.issueId, state.modal.taskId, { task: values.task, assignees: values.assignees, dueDate: values.dueDate, status: values.status });
-  if (state.modal.type === 'agreement') upsert(state.data.agreements, { id, date: values.date, title: values.title, description: values.description });
+  if (state.modal.type === 'agreement') upsert(state.data.agreements, { id, date: values.date, title: values.title, description: values.description, attachments: values.attachments });
   if (state.modal.type === 'sectionTitle') state.data.sectionTitles[state.modal.sectionId] = values.title;
   if (state.modal.type === 'dashboardTitle') {
     state.data.title = values.title;
