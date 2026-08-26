@@ -153,7 +153,8 @@ button:hover, .google-button:hover { filter: brightness(1.08); }
   height: clamp(3rem, 6vw, 4.4rem);
   width: clamp(3rem, 6vw, 4.4rem);
 }
-.hero h1 { font-size: clamp(2rem, 5vw, 4rem); letter-spacing: -.05em; }
+.hero h1 { font-size: clamp(1.25rem, 2.3vw, 1.65rem); letter-spacing: -.03em; }
+.section-title h2 { font-size: clamp(1.05rem, 2vw, 1.35rem); letter-spacing: -.02em; }
 .dashboard-title-row { align-items: center; display: flex; gap: .4rem; }
 .dashboard-title-row .icon-button { flex: 0 0 auto; }
 .eyebrow {
@@ -880,7 +881,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .hero .brand-title { align-items: flex-start; gap: .65rem; grid-column: 1; min-width: 0; }
   .hero .brand-title > div { min-width: 0; }
   .hero .dashboard-logo { height: 2.4rem; width: 2.4rem; }
-  .hero h1 { font-size: 1.4rem; letter-spacing: -.03em; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hero h1 { font-size: 1.18rem; letter-spacing: -.03em; line-height: 1.1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .hero .brand-title p { font-size: .78rem; line-height: 1.35; margin: .25rem 0 0; }
   .hero .dashboard-title-row { gap: .15rem; }
   .hero .dashboard-title-row .icon-button { padding: .1rem .2rem; }
