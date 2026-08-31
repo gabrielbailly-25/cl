@@ -899,4 +899,6 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .login-card button, .google-button { width: 100%; }
   .login-card #loginForm button,
   .login-card .google-button { width: min(100%, 14rem); }
+  .table-filter-bar .table-filter { flex: 1 1 auto; max-width: none; width: auto; }
+  .table-filter-bar .quick-filters { flex-basis: 100%; margin-left: 0; }
 }
