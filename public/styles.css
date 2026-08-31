@@ -381,7 +381,7 @@ button:hover, .google-button:hover { filter: brightness(1.08); }
   margin: 0 0 .75rem;
 }
 .table-filter { margin: 0 0 .75rem; max-width: 22rem; }
-.table-filter-bar .table-filter { margin: 0; }
+.table-filter-bar .table-filter { flex: 0 1 12rem; margin: 0; max-width: calc(100% - 5rem); width: 12rem; }
 .quick-filters { margin-left: auto; }
 .sort-button {
   background: transparent;

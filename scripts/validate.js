@@ -11,6 +11,7 @@ const required = [
   'api/[...path].js',
   'api/auth/[...path].js',
   'api/auth/google/callback.js',
+  'api/cron/reminders.js',
   'api/reminders/test.js',
   'api/password-reset/request.js',
   'api/password-reset/confirm.js',
