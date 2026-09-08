@@ -577,6 +577,7 @@ function sanitizeDashboard(input, fallback) {
         assignees: parseList(task.assignees || []),
         dueDate: text(task.dueDate),
         status: ['nuevo', 'en progreso', 'realizado'].includes(task.status) ? task.status : 'nuevo',
+        createdAt: text(task.createdAt),
       })),
       comments: array(item.comments).map((comment) => ({
         id: text(comment.id) || id(),

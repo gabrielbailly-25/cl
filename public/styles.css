@@ -576,6 +576,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
 }
 .modal-card > .section-title .icon-button { flex: 0 0 auto; }
 .modal-header-actions { display: flex; gap: .25rem; margin-left: auto; }
+.modal-close-actions { display: grid; gap: .25rem; }
 .modal-close-button {
   background: white;
   border: 1px solid var(--brand);

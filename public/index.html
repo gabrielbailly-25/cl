@@ -18,7 +18,7 @@
     <link rel="manifest" href="/manifest.webmanifest?v=20260822">
     <link rel="icon" type="image/png" href="/images/app-icon.png?v=20260822">
     <link rel="apple-touch-icon" href="/images/app-icon.png?v=20260822">
-    <link rel="stylesheet" href="/styles.css?v=20260821-4700">
+    <link rel="stylesheet" href="/styles.css?v=20260821-4800">
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   </head>
   <body>
@@ -237,7 +237,10 @@
           <h2 id="modalTitle"></h2>
           <div class="modal-header-actions">
             <button type="submit" class="save-modal-button">Guardar</button>
-            <button type="button" id="closeModal" class="modal-close-button">Cerrar</button>
+            <div class="modal-close-actions">
+              <button type="button" id="closeModal" class="modal-close-button">Cerrar</button>
+              <button type="button" id="addAgreementFromIssue" class="secondary hidden">Añadir acuerdo</button>
+            </div>
           </div>
         </div>
         <div id="modalFields" class="stack"></div>
@@ -287,6 +290,6 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script src="/app.js?v=20260821-4600"></script>
+    <script src="/app.js?v=20260821-4700"></script>
   </body>
 </html>

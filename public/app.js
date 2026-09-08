@@ -69,6 +69,7 @@ function bindEvents() {
   $('#saveAppearanceButton').addEventListener('click', saveAppearance);
   $('#dashboardSelector').addEventListener('change', switchDashboard);
   $('#closeModal').addEventListener('click', closeEditModal);
+  $('#addAgreementFromIssue').addEventListener('click', addAgreementFromIssue);
   $('#closeIssueView').addEventListener('click', () => issueViewModal.close());
   issueViewModal.addEventListener('close', () => {
     state.viewingIssueId = '';
@@ -733,7 +734,7 @@ function pendingTasks() {
     issueTitle: issue.title,
     issueId: issue.id,
     taskId: task.id,
-  })));
+  }))).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
 
 function openTaskView(task) {
@@ -1335,6 +1336,7 @@ function openModal(config) {
   $('#modalTitle').textContent = config.title;
   $('#modalError').textContent = '';
   $('#deleteModal').classList.toggle('hidden', !config.deletable);
+  $('#addAgreementFromIssue').classList.toggle('hidden', config.type !== 'issue' || !config.id);
   $('#modalForm').querySelectorAll('.save-modal-button').forEach((button) => button.classList.toggle('hidden', Boolean(config.readOnly)));
   modalFields.innerHTML = '';
   config.fields.forEach((field) => modalFields.append(field));
@@ -1370,9 +1372,9 @@ async function saveCurrent(event) {
   const isNew = !state.modal.id;
   const newRowTable = state.modal.type === 'issue' ? 'issues' : state.modal.type === 'agreement' ? 'agreements' : state.modal.type === 'customRow' ? state.modal.tableId : '';
   if (state.modal.type === 'link') upsert(state.data.frequentLinks, { id, title: values.title, url: values.url });
-  if (state.modal.type === 'issue') upsert(state.data.issues, { id, date: values.date, title: values.title, addedBy: values.addedBy, status: values.status, description: values.description, attachments: values.attachments, tasks: values.tasks, comments: state.modal.comments || [], readBy: state.modal.readBy || [] });
+  if (state.modal.type === 'issue') upsert(state.data.issues, { id, date: values.date, title: values.title, addedBy: values.addedBy, status: values.status, description: values.description, attachments: values.attachments, tasks: values.tasks, comments: state.modal.comments || [], readBy: state.modal.readBy || [] }, isNew);
   if (state.modal.type === 'task') updateTask(state.modal.issueId, state.modal.taskId, { task: values.task, assignees: values.assignees, dueDate: values.dueDate, status: values.status });
-  if (state.modal.type === 'agreement') upsert(state.data.agreements, { id, date: values.date, title: values.title, description: values.description, attachments: values.attachments });
+  if (state.modal.type === 'agreement') upsert(state.data.agreements, { id, date: values.date, title: values.title, description: values.description, attachments: values.attachments }, isNew);
   if (state.modal.type === 'sectionTitle') state.data.sectionTitles[state.modal.sectionId] = values.title;
   if (state.modal.type === 'dashboardTitle') {
     state.data.title = values.title;
@@ -1391,6 +1393,41 @@ async function saveCurrent(event) {
     markRecentRow(newRowTable, id);
   }
   closeEditModal();
+}
+
+async function addAgreementFromIssue() {
+  if (!state.modal || state.modal.type !== 'issue' || !state.modal.id) return;
+  let values;
+  try {
+    values = await readModalValues();
+  } catch (error) {
+    $('#modalError').textContent = error.message;
+    return;
+  }
+  if (!values) return;
+  const issue = {
+    id: state.modal.id,
+    date: values.date,
+    title: values.title,
+    addedBy: values.addedBy,
+    status: values.status,
+    description: values.description,
+    attachments: values.attachments,
+    tasks: values.tasks,
+    comments: state.modal.comments || [],
+    readBy: state.modal.readBy || [],
+  };
+  const agreement = { id: uid(), date: values.date, title: values.title, description: values.description, attachments: values.attachments };
+  upsert(state.data.issues, issue);
+  upsert(state.data.agreements, agreement, true);
+  try {
+    await persist();
+    markRecentRow('agreements', agreement.id);
+    closeEditModal();
+    showToast('Acuerdo añadido correctamente');
+  } catch (error) {
+    $('#modalError').textContent = error.message;
+  }
 }
 
 function markRecentRow(tableId, rowId) {
@@ -1841,7 +1878,8 @@ function tasksField(tasks = []) {
 }
 
 function taskRow(task = {}) {
-  const row = html(`<div class="task-row" data-id="${escapeAttr(task.id || '')}">
+  const createdAt = task.createdAt || (!task.id ? new Date().toISOString() : '');
+  const row = html(`<div class="task-row" data-id="${escapeAttr(task.id || '')}" data-created-at="${escapeAttr(createdAt)}">
     <input data-task-title placeholder="Tarea" value="${escapeAttr(task.task || '')}">
     ${compactAssigneePicker(task.assignees || [])}
     <input data-task-due-date type="date" value="${escapeAttr(task.dueDate || '')}">
@@ -1929,7 +1967,7 @@ function readTasks() {
     const assignees = readSelectedAssignees(row);
     const dueDate = row.querySelector('[data-task-due-date]').value;
     const status = row.querySelector('[data-task-status]').value;
-    return task || assignees.length || dueDate ? { id: row.dataset.id || uid(), task, assignees, dueDate, status } : null;
+    return task || assignees.length || dueDate ? { id: row.dataset.id || uid(), task, assignees, dueDate, status, createdAt: row.dataset.createdAt || '' } : null;
   }).filter(Boolean);
 }
 
@@ -2134,9 +2172,10 @@ function actionCell(element) {
   return cell;
 }
 
-function upsert(list, item) {
+function upsert(list, item, prepend = false) {
   const index = list.findIndex((entry) => entry.id === item.id);
   if (index >= 0) list[index] = item;
+  else if (prepend) list.unshift(item);
   else list.push(item);
 }
 
