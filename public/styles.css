@@ -622,12 +622,12 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   overflow-wrap: anywhere;
   word-break: break-word;
 }
-.read-by { align-items: center; display: flex; gap: .35rem; }
+.read-by { align-items: flex-start; display: flex; gap: .35rem; }
 .read-toggle { background: transparent; color: var(--brand); font-size: 1.2rem; min-height: 1.5rem; padding: .1rem .25rem; }
 .read-toggle:hover { background: var(--glow); filter: none; }
-.read-avatars { align-items: center; display: flex; flex-wrap: wrap; gap: 0; }
-.read-avatar { display: inline-flex; }
-.read-avatar .user-avatar { height: 1.3rem; width: 1.3rem; }
+.read-users { align-items: center; display: flex; flex-wrap: wrap; gap: .25rem; }
+.read-users .user-chip { font-size: .72rem; padding: .18rem .45rem .18rem .25rem; }
+.read-users .user-avatar { height: 1.15rem; width: 1.15rem; }
 .install-prompt-card { display: grid; gap: .8rem; }
 .install-prompt-card p { line-height: 1.5; margin: 0; }
 .install-instructions { color: var(--brand); font-weight: 800; }

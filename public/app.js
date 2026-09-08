@@ -9,6 +9,11 @@ const state = {
   oneSignal: null,
   oneSignalPromise: null,
   recentRows: new Set(),
+  syncTimer: 0,
+  syncInProgress: false,
+  isPersisting: false,
+  dataVersion: 0,
+  viewingIssueId: '',
 };
 
 const $ = (selector) => document.querySelector(selector);
@@ -65,6 +70,13 @@ function bindEvents() {
   $('#dashboardSelector').addEventListener('change', switchDashboard);
   $('#closeModal').addEventListener('click', closeEditModal);
   $('#closeIssueView').addEventListener('click', () => issueViewModal.close());
+  issueViewModal.addEventListener('close', () => {
+    state.viewingIssueId = '';
+    state.editingCommentId = '';
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncDashboardData();
+  });
   $('#closeInstallPrompt').addEventListener('click', closeInstallPrompt);
   $('#dismissInstallPrompt').addEventListener('click', closeInstallPrompt);
   $('#installAppButton').addEventListener('click', openInstallPrompt);
@@ -82,6 +94,7 @@ async function loadSession() {
     state.me = await api('/api/me');
     state.activeDashboard = requestedDashboard() || state.me.activeDashboard;
     state.data = normalizeData(await api(`/api/data?dashboard=${encodeURIComponent(state.activeDashboard)}`));
+    state.dataVersion += 1;
     showApp();
   } catch (error) {
     showLogin();
@@ -89,6 +102,7 @@ async function loadSession() {
 }
 
 function showLogin() {
+  stopDashboardSync();
   const next = `${window.location.pathname}${window.location.search}`;
   $('#googleLogin').href = `/api/auth/google?next=${encodeURIComponent(next)}`;
   $('#login').classList.remove('hidden');
@@ -127,6 +141,7 @@ function showApp() {
   initializePush();
   openLinkedTask();
   renderAppInstallNotice();
+  startDashboardSync();
 }
 
 function applyDashboardTheme() {
@@ -297,6 +312,7 @@ async function switchDashboard(event) {
   state.activeDashboard = event.target.value;
   state.tables = {};
   state.data = normalizeData(await api(`/api/data?dashboard=${encodeURIComponent(state.activeDashboard)}`));
+  state.dataVersion += 1;
   clearTaskLink();
   showApp();
 }
@@ -512,9 +528,9 @@ function exportIssuesCsv() {
 function issueReadCell(issue) {
   const readBy = issue.readBy || [];
   const hasRead = readBy.some((reader) => reader.email === String(state.me.email).toLowerCase());
-  const avatars = readBy.map((reader) => `<span class="read-avatar" title="${escapeAttr(reader.name || reader.email)}" aria-label="Leído por ${escapeAttr(reader.name || reader.email)}">${userAvatar(reader)}</span>`).join('');
+  const readers = readBy.length ? readBy.map((reader) => userChip(reader)).join('') : '<span class="muted-text">Nadie</span>';
   const label = hasRead ? 'Marcar no leído' : 'Marcar leído';
-  return `<div class="read-by"><button type="button" class="read-toggle" data-mark-issue-read title="${label}" aria-label="${label}">${hasRead ? '&#8634;' : '&#10003;'}</button><div class="read-avatars">${avatars}</div></div>`;
+  return `<div class="read-by"><button type="button" class="read-toggle" data-mark-issue-read title="${label}" aria-label="${label}">${hasRead ? '&#8634;' : '&#10003;'}</button><div class="read-users">${readers}</div></div>`;
 }
 
 async function toggleIssueRead(event, issueId) {
@@ -535,6 +551,7 @@ async function toggleIssueRead(event, issueId) {
 }
 
 function openIssueView(issue) {
+  state.viewingIssueId = issue.id;
   setIssueViewHeaderAction();
   $('#issueViewTitle').textContent = issue.title || 'Sin título';
   $('#issueViewContent').innerHTML = `
@@ -1439,8 +1456,50 @@ async function readModalValues() {
 }
 
 async function persist() {
-  state.data = normalizeData(await api(`/api/data?dashboard=${encodeURIComponent(state.activeDashboard)}`, { method: 'PUT', body: state.data }));
-  render();
+  state.isPersisting = true;
+  state.dataVersion += 1;
+  try {
+    state.data = normalizeData(await api(`/api/data?dashboard=${encodeURIComponent(state.activeDashboard)}`, { method: 'PUT', body: state.data }));
+    render();
+  } finally {
+    state.isPersisting = false;
+  }
+}
+
+function startDashboardSync() {
+  stopDashboardSync();
+  state.syncTimer = window.setInterval(syncDashboardData, 10000);
+}
+
+function stopDashboardSync() {
+  if (state.syncTimer) window.clearInterval(state.syncTimer);
+  state.syncTimer = 0;
+}
+
+async function syncDashboardData() {
+  if (!state.me || !state.data || state.syncInProgress || state.isPersisting || document.visibilityState !== 'visible') return;
+  const dashboardId = state.activeDashboard;
+  const version = state.dataVersion;
+  state.syncInProgress = true;
+  try {
+    const next = normalizeData(await api(`/api/data?dashboard=${encodeURIComponent(dashboardId)}`));
+    if (dashboardId !== state.activeDashboard || version !== state.dataVersion || JSON.stringify(next) === JSON.stringify(state.data)) return;
+    state.data = next;
+    state.dataVersion += 1;
+    render();
+    refreshOpenIssueView();
+  } catch (error) {
+    console.error('No se pudo sincronizar el tablero:', error);
+  } finally {
+    state.syncInProgress = false;
+  }
+}
+
+function refreshOpenIssueView() {
+  if (!issueViewModal.open || state.editingCommentId || $('#issueViewContent textarea')?.value.trim()) return;
+  const issue = state.data.issues.find((item) => item.id === state.viewingIssueId);
+  if (issue) openIssueView(issue);
+  else issueViewModal.close();
 }
 
 async function saveUsers() {
