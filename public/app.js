@@ -542,7 +542,8 @@ async function toggleIssueRead(event, issueId) {
   if (!email) return;
   const previous = issue.readBy || [];
   const hasRead = previous.some((reader) => reader.email === email);
-  issue.readBy = hasRead ? previous.filter((reader) => reader.email !== email) : [...previous, { email, name: state.me.name || email, photo: state.me.photo || '' }];
+  const user = state.data.users[email] || {};
+  issue.readBy = hasRead ? previous.filter((reader) => reader.email !== email) : [...previous, { email, name: user.name || state.me.name || email, photo: state.me.photo || '' }];
   try {
     await persist();
   } catch (error) {
@@ -1584,7 +1585,7 @@ function renderReminderSettings() {
   const reminder = state.data.reminder || { enabled: false, days: [], time: '08:00' };
   const smtp = state.data.smtp || {};
   $('#reminderEnabled').checked = Boolean(reminder.enabled);
-  $('#reminderTime').value = reminder.time || '08:00';
+  $('#reminderTime').value = '08:00';
   $('#smtpHost').value = smtp.host || '';
   $('#smtpPort').value = smtp.port || 587;
   $('#smtpUser').value = smtp.user || '';
@@ -1613,7 +1614,7 @@ async function saveReminder(options = {}) {
   const reminder = {
     enabled: $('#reminderEnabled').checked,
     days: [...document.querySelectorAll('[name="reminderDay"]:checked')].map((input) => input.value),
-    time: $('#reminderTime').value || '08:00',
+    time: '08:00',
   };
   const smtp = { host: $('#smtpHost').value, port: $('#smtpPort').value, user: $('#smtpUser').value, pass: $('#smtpPass').value, from: $('#smtpFrom').value };
   const result = await api(`/api/reminders?dashboard=${encodeURIComponent(state.activeDashboard)}`, { method: 'PUT', body: { reminder, smtp } });
@@ -2096,7 +2097,7 @@ function userAvatar(user) {
 
 function userForValue(value) {
   const key = String(value || '').toLowerCase();
-  const users = [state.me, ...Object.values(state.data.users || {})].filter(Boolean);
+  const users = [...Object.values(state.data.users || {}), state.me].filter(Boolean);
   return users.find((user) => String(user.email || '').toLowerCase() === key || String(user.name || '').toLowerCase() === key) || { name: value || 'Sin indicar', email: '' };
 }
 
