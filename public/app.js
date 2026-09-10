@@ -2228,7 +2228,8 @@ async function api(url, options = {}) {
 }
 
 function displayUser() {
-  return state.me && (state.me.name || state.me.email) || '';
+  const email = state.me && String(state.me.email || '').toLowerCase();
+  return state.data && state.data.users && state.data.users[email] && state.data.users[email].name || state.me && (state.me.name || state.me.email) || '';
 }
 
 function requestedDashboard() {
