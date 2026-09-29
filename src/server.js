@@ -38,6 +38,7 @@ const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || '';
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || '';
 const SESSION_TTL_SECONDS = 12 * 60 * 60;
+const AUTH_COOKIE = 'consejo_auth';
 
 const DASHBOARDS = [
   { id: 'san-miguel', name: 'San Miguel' },
@@ -104,6 +105,7 @@ if (IS_VERCEL && (!DATABASE_URL || !process.env.SESSION_SECRET)) {
 }
 app.use(passport.initialize());
 app.use(passport.session());
+app.use(loadAuthCookie);
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
@@ -206,18 +208,22 @@ app.get('/api/auth/google/callback', (req, res, next) => {
   passport.authenticate('google', (error, user) => {
     if (error) return next(error);
     if (!user) return res.redirect('/?login=denied');
-    req.logIn(user, (loginError) => {
-      if (loginError) return next(loginError);
-      req.session.save((saveError) => {
-        if (saveError) return next(saveError);
-        res.redirect(safeNextUrl(req.query.state) || '/');
-      });
+      req.logIn(user, (loginError) => {
+        if (loginError) return next(loginError);
+        req.session.save((saveError) => {
+          if (saveError) console.error('No se pudo guardar la sesión OAuth; se usará la cookie de respaldo:', saveError.message);
+          setAuthCookie(res, user);
+          res.redirect(safeNextUrl(req.query.state) || '/');
+        });
     });
   })(req, res, next);
 });
 
 app.post('/api/logout', requireAuth, (req, res) => {
-  req.logout(() => res.json({ ok: true }));
+  req.logout(() => {
+    res.setHeader('Set-Cookie', `${AUTH_COOKIE}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${IS_VERCEL ? '; Secure' : ''}`);
+    res.json({ ok: true });
+  });
 });
 
 app.get('/api/me', (req, res) => {
@@ -370,6 +376,45 @@ function requireAuth(req, res, next) {
 
 function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+}
+
+function loadAuthCookie(req, res, next) {
+  if (req.user) return next();
+  const token = parseCookies(req.headers.cookie || '')[AUTH_COOKIE];
+  const user = verifyAuthCookie(token);
+  if (user) req.user = user;
+  next();
+}
+
+function setAuthCookie(res, user) {
+  const payload = Buffer.from(JSON.stringify({
+    email: user.email,
+    name: user.name || user.email,
+    photo: user.photo || '',
+    provider: user.provider || 'google',
+    exp: Date.now() + SESSION_TTL_SECONDS * 1000,
+  })).toString('base64url');
+  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  res.setHeader('Set-Cookie', `${AUTH_COOKIE}=${payload}.${signature}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly; SameSite=Lax${IS_VERCEL ? '; Secure' : ''}`);
+}
+
+function verifyAuthCookie(token) {
+  const [payload, signature] = String(token || '').split('.');
+  if (!payload || !signature) return null;
+  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
+  const received = Buffer.from(signature);
+  const actual = Buffer.from(expected);
+  if (received.length !== actual.length || !crypto.timingSafeEqual(received, actual)) return null;
+  try {
+    const user = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    return user.exp > Date.now() && user.email ? user : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function parseCookies(header) {
+  return Object.fromEntries(String(header || '').split(';').map((part) => part.trim().split('=').map(decodeURIComponent)).filter(([key, value]) => key && value));
 }
 
 function requireCronSecret(req, res, next) {
