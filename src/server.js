@@ -24,7 +24,7 @@ const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || '';
 const CRON_SECRET = process.env.CRON_SECRET || '';
 const IS_VERCEL = Boolean(process.env.VERCEL);
 const INITIAL_ADMIN_EMAIL = 'gabriel.bailly@gmail.com';
-const ADMIN_EMAILS = [...new Set([INITIAL_ADMIN_EMAIL, ...parseList(process.env.ADMIN_EMAILS || [])])];
+const ADMIN_EMAILS = parseList(process.env.ADMIN_EMAILS || INITIAL_ADMIN_EMAIL);
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback';
@@ -37,8 +37,6 @@ const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@localhost';
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || '';
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || '';
-const SESSION_TTL_SECONDS = 12 * 60 * 60;
-const AUTH_COOKIE = 'consejo_auth';
 
 const DASHBOARDS = [
   { id: 'san-miguel', name: 'San Miguel' },
@@ -92,20 +90,18 @@ if (IS_VERCEL && (!DATABASE_URL || !process.env.SESSION_SECRET)) {
   const sessionOptions = {
     secret: SESSION_SECRET,
     resave: false,
-    rolling: true,
     saveUninitialized: false,
-    cookie: { sameSite: 'lax', secure: IS_VERCEL, httpOnly: true, maxAge: SESSION_TTL_SECONDS * 1000 },
+    cookie: { sameSite: 'lax', secure: IS_VERCEL, httpOnly: true },
   };
   if (pool) {
     const PgSession = connectPgSimple(session);
-    sessionOptions.store = new PgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true, ttl: SESSION_TTL_SECONDS });
+    sessionOptions.store = new PgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true });
   }
   app.use(session(sessionOptions));
   app.use(loadPersistentData);
 }
 app.use(passport.initialize());
 app.use(passport.session());
-app.use(loadAuthCookie);
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((user, done) => done(null, user));
@@ -205,25 +201,13 @@ app.get('/api/auth/google', (req, res, next) => {
 
 app.get('/api/auth/google/callback', (req, res, next) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) return res.redirect('/?login=google-disabled');
-  passport.authenticate('google', (error, user) => {
-    if (error) return next(error);
-    if (!user) return res.redirect('/?login=denied');
-      req.logIn(user, (loginError) => {
-        if (loginError) return next(loginError);
-        req.session.save((saveError) => {
-          if (saveError) console.error('No se pudo guardar la sesión OAuth; se usará la cookie de respaldo:', saveError.message);
-          setAuthCookie(res, user);
-          res.redirect(safeNextUrl(req.query.state) || '/');
-        });
-    });
-  })(req, res, next);
+  next();
+}, passport.authenticate('google', { failureRedirect: '/?login=denied' }), (req, res) => {
+  res.redirect(safeNextUrl(req.query.state) || '/');
 });
 
 app.post('/api/logout', requireAuth, (req, res) => {
-  req.logout(() => {
-    res.setHeader('Set-Cookie', `${AUTH_COOKIE}=; Max-Age=0; Path=/; HttpOnly; SameSite=Lax${IS_VERCEL ? '; Secure' : ''}`);
-    res.json({ ok: true });
-  });
+  req.logout(() => res.json({ ok: true }));
 });
 
 app.get('/api/me', (req, res) => {
@@ -333,16 +317,16 @@ app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('fil
     label: text(req.body.label) || req.file.originalname,
     originalName: req.file.originalname,
     fileName,
-    url: uploadUrl(req.dashboardId, fileName),
+    url: `/api/uploads/${encodeURIComponent(req.dashboardId)}/${encodeURIComponent(fileName)}`,
   });
 }));
 
-app.get('/api/uploads/:dashboardId/*', requireAuth, asyncHandler(async (req, res) => {
+app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (req, res) => {
   const dashboard = getDashboardForUser(req.user.email, req.params.dashboardId);
   if (!dashboard) return res.status(403).send('No autorizado');
   if (IS_VERCEL) {
     if (!BLOB_READ_WRITE_TOKEN) return res.status(503).send('El almacenamiento de adjuntos no está configurado.');
-    const fileName = String(req.params[0] || '');
+    const fileName = req.params.fileName;
     if (!fileName.startsWith(`uploads/${dashboard.id}/`) || fileName.includes('..')) return res.status(400).send('Archivo no válido');
     try {
       const blob = await head(fileName, { token: BLOB_READ_WRITE_TOKEN });
@@ -376,45 +360,6 @@ function requireAuth(req, res, next) {
 
 function asyncHandler(handler) {
   return (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
-}
-
-function loadAuthCookie(req, res, next) {
-  if (req.user) return next();
-  const token = parseCookies(req.headers.cookie || '')[AUTH_COOKIE];
-  const user = verifyAuthCookie(token);
-  if (user) req.user = user;
-  next();
-}
-
-function setAuthCookie(res, user) {
-  const payload = Buffer.from(JSON.stringify({
-    email: user.email,
-    name: user.name || user.email,
-    photo: user.photo || '',
-    provider: user.provider || 'google',
-    exp: Date.now() + SESSION_TTL_SECONDS * 1000,
-  })).toString('base64url');
-  const signature = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
-  res.setHeader('Set-Cookie', `${AUTH_COOKIE}=${payload}.${signature}; Max-Age=${SESSION_TTL_SECONDS}; Path=/; HttpOnly; SameSite=Lax${IS_VERCEL ? '; Secure' : ''}`);
-}
-
-function verifyAuthCookie(token) {
-  const [payload, signature] = String(token || '').split('.');
-  if (!payload || !signature) return null;
-  const expected = crypto.createHmac('sha256', SESSION_SECRET).update(payload).digest('base64url');
-  const received = Buffer.from(signature);
-  const actual = Buffer.from(expected);
-  if (received.length !== actual.length || !crypto.timingSafeEqual(received, actual)) return null;
-  try {
-    const user = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
-    return user.exp > Date.now() && user.email ? user : null;
-  } catch (error) {
-    return null;
-  }
-}
-
-function parseCookies(header) {
-  return Object.fromEntries(String(header || '').split(';').map((part) => part.trim().split('=').map(decodeURIComponent)).filter(([key, value]) => key && value));
 }
 
 function requireCronSecret(req, res, next) {
@@ -476,7 +421,7 @@ function getAccessibleDashboards(email) {
   const store = readData();
   if (isSystemAdmin(normalizedEmail)) return Object.values(store.dashboards);
   return Object.values(store.dashboards).filter((dashboard) => {
-    return array(dashboard.allowedUsers).some((userEmail) => String(userEmail).toLowerCase() === normalizedEmail) || array(dashboard.admins).some((userEmail) => String(userEmail).toLowerCase() === normalizedEmail);
+    return array(dashboard.allowedUsers).includes(normalizedEmail) || array(dashboard.admins).includes(normalizedEmail);
   });
 }
 
@@ -603,14 +548,6 @@ function sanitizeDashboard(input, fallback) {
     admins,
     allowedUsers: parseList(input.allowedUsers || fallback.allowedUsers || []),
     users,
-    tasks: array(input.tasks || fallback.tasks).map((task) => ({
-      id: text(task.id) || id(),
-      task: text(task.task),
-      assignees: parseList(task.assignees || []),
-      dueDate: text(task.dueDate),
-      status: ['nuevo', 'en progreso', 'realizado'].includes(task.status) ? task.status : 'nuevo',
-      createdAt: text(task.createdAt),
-    })),
     reminder: sanitizeReminder(input.reminder || fallback.reminder || defaultReminder()),
     smtp: sanitizeSmtp(input.smtp || {}, fallback.smtp || defaultSmtp()),
     frequentLinks: array(input.frequentLinks).map((item) => ({
@@ -1021,10 +958,6 @@ function safeNextUrl(value) {
 function safeFileName(value) {
   const name = path.basename(String(value || 'archivo')).replace(/[^A-Za-z0-9._-]/g, '-').replace(/-+/g, '-');
   return name.slice(0, 120) || 'archivo';
-}
-
-function uploadUrl(dashboardId, fileName) {
-  return `/api/uploads/${encodeURIComponent(dashboardId)}/${String(fileName || '').split('/').map(encodeURIComponent).join('/')}`;
 }
 
 function formatDate(value) {
