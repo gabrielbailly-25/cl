@@ -548,6 +548,14 @@ function sanitizeDashboard(input, fallback) {
     admins,
     allowedUsers: parseList(input.allowedUsers || fallback.allowedUsers || []),
     users,
+    tasks: array(input.tasks || fallback.tasks).map((task) => ({
+      id: text(task.id) || id(),
+      task: text(task.task),
+      assignees: parseList(task.assignees || []),
+      dueDate: text(task.dueDate),
+      status: ['nuevo', 'en progreso', 'realizado'].includes(task.status) ? task.status : 'nuevo',
+      createdAt: text(task.createdAt),
+    })),
     reminder: sanitizeReminder(input.reminder || fallback.reminder || defaultReminder()),
     smtp: sanitizeSmtp(input.smtp || {}, fallback.smtp || defaultSmtp()),
     frequentLinks: array(input.frequentLinks).map((item) => ({

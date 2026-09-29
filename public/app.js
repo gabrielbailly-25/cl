@@ -55,6 +55,7 @@ function bindEvents() {
   $('#addIssueButton').addEventListener('click', () => openIssueModal());
   $('#exportIssuesButton').addEventListener('click', exportIssuesCsv);
   $('#exportPendingTasksButton').addEventListener('click', exportPendingTasksCsv);
+  $('#addPendingTaskButton').addEventListener('click', () => openTaskModal());
   $('#addAgreementButton').addEventListener('click', () => openAgreementModal());
   $('#exportAgreementsButton').addEventListener('click', exportAgreementsCsv);
   $('#addTableButton').addEventListener('click', () => openTableModal());
@@ -681,8 +682,7 @@ async function deleteIssueComment(issueId, commentId) {
 
 function renderPendingTasks() {
   const tasks = pendingTasks();
-  $('#pendingTasksPanel').classList.toggle('hidden', !tasks.length);
-  if (!tasks.length) return;
+  $('#pendingTasksPanel').classList.remove('hidden');
   const columns = [
     { key: 'issueTitle', label: 'Asunto' },
     { key: 'task', label: 'Tarea' },
@@ -724,7 +724,7 @@ function exportPendingTasksCsv() {
 }
 
 function pendingTasks() {
-  return (state.data.issues || []).flatMap((issue) => (issue.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
+  const relatedTasks = (state.data.issues || []).flatMap((issue) => (issue.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
     ...task,
     task: task.task || 'Tarea sin título',
     assigneesText: formatAssignees(task.assignees),
@@ -734,7 +734,19 @@ function pendingTasks() {
     issueTitle: issue.title,
     issueId: issue.id,
     taskId: task.id,
-  }))).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  })));
+  const standaloneTasks = (state.data.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
+    ...task,
+    task: task.task || 'Tarea sin título',
+    assigneesText: formatAssignees(task.assignees),
+    dueDate: task.dueDate || '',
+    dueDateText: formatDate(task.dueDate),
+    status: task.status || 'nuevo',
+    issueTitle: 'Sin asunto',
+    issueId: '',
+    taskId: task.id,
+  }));
+  return [...relatedTasks, ...standaloneTasks].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
 
 function openTaskView(task) {
@@ -1283,17 +1295,17 @@ function openIssueModal(issue = null) {
 function openTaskModal(task) {
   openModal({
     type: 'task',
-    issueId: task.issueId,
-    taskId: task.taskId,
-    title: 'Editar tarea',
+    issueId: task && task.issueId,
+    taskId: task && task.taskId,
+    title: task ? 'Editar tarea' : 'Añadir tarea pendiente',
     fields: [
-      taskIssueField(task.issueTitle, task.issueId),
-      inputField('task', 'Tarea', task.task),
-      taskAssigneesField(task.assignees || []),
-      inputField('dueDate', 'Fecha límite', task.dueDate, 'date'),
-      compactStatusField(task.status),
+      ...(task && task.issueId ? [taskIssueField(task.issueTitle, task.issueId)] : []),
+      inputField('task', 'Tarea', task && task.task),
+      taskAssigneesField(task && task.assignees || []),
+      inputField('dueDate', 'Fecha límite', task && task.dueDate, 'date'),
+      compactStatusField(task && task.status),
     ],
-    deletable: true,
+    deletable: Boolean(task),
   });
 }
 
@@ -1981,7 +1993,11 @@ function readSelectedAssignees(root) {
 
 function updateTask(issueId, taskId, nextTask) {
   const issue = state.data.issues.find((item) => item.id === issueId);
-  if (!issue) return;
+  if (!issue) {
+    const index = (state.data.tasks || []).findIndex((task) => task.id === taskId);
+    if (index >= 0) state.data.tasks[index] = { ...state.data.tasks[index], ...nextTask, id: taskId };
+    return;
+  }
   const index = (issue.tasks || []).findIndex((task) => task.id === taskId);
   if (index >= 0) issue.tasks[index] = { ...issue.tasks[index], ...nextTask, id: taskId };
 }
@@ -1989,8 +2005,8 @@ function updateTask(issueId, taskId, nextTask) {
 async function deleteTask(task, closeModal = true, askConfirm = true) {
   if (askConfirm && !window.confirm('¿Eliminar esta tarea?')) return;
   const issue = state.data.issues.find((item) => item.id === task.issueId);
-  if (!issue) return;
-  remove(issue.tasks || [], task.taskId);
+  if (issue) remove(issue.tasks || [], task.taskId);
+  else remove(state.data.tasks || [], task.taskId);
   await persist();
   if (closeModal) closeEditModal();
 }
@@ -2042,6 +2058,7 @@ function normalizeData(data) {
   data.allowedUsers = data.allowedUsers || [];
   data.admins = data.admins || [];
   data.users = data.users || {};
+  data.tasks = data.tasks || [];
   data.layoutOrder = data.layoutOrder || [];
   data.collapsedSections = data.collapsedSections || [];
   data.hiddenSections = data.hiddenSections || [];
