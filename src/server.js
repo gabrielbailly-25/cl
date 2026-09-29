@@ -24,7 +24,7 @@ const BLOB_READ_WRITE_TOKEN = process.env.BLOB_READ_WRITE_TOKEN || '';
 const CRON_SECRET = process.env.CRON_SECRET || '';
 const IS_VERCEL = Boolean(process.env.VERCEL);
 const INITIAL_ADMIN_EMAIL = 'gabriel.bailly@gmail.com';
-const ADMIN_EMAILS = parseList(process.env.ADMIN_EMAILS || INITIAL_ADMIN_EMAIL);
+const ADMIN_EMAILS = [...new Set([INITIAL_ADMIN_EMAIL, ...parseList(process.env.ADMIN_EMAILS || [])])];
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || '/api/auth/google/callback';
@@ -431,7 +431,7 @@ function getAccessibleDashboards(email) {
   const store = readData();
   if (isSystemAdmin(normalizedEmail)) return Object.values(store.dashboards);
   return Object.values(store.dashboards).filter((dashboard) => {
-    return array(dashboard.allowedUsers).includes(normalizedEmail) || array(dashboard.admins).includes(normalizedEmail);
+    return array(dashboard.allowedUsers).some((userEmail) => String(userEmail).toLowerCase() === normalizedEmail) || array(dashboard.admins).some((userEmail) => String(userEmail).toLowerCase() === normalizedEmail);
   });
 }
 
