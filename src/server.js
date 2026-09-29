@@ -37,6 +37,7 @@ const SMTP_FROM = process.env.SMTP_FROM || SMTP_USER || 'no-reply@localhost';
 const APP_URL = (process.env.APP_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
 const ONESIGNAL_APP_ID = process.env.ONESIGNAL_APP_ID || '';
 const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || '';
+const SESSION_TTL_SECONDS = 12 * 60 * 60;
 
 const DASHBOARDS = [
   { id: 'san-miguel', name: 'San Miguel' },
@@ -90,12 +91,13 @@ if (IS_VERCEL && (!DATABASE_URL || !process.env.SESSION_SECRET)) {
   const sessionOptions = {
     secret: SESSION_SECRET,
     resave: false,
+    rolling: true,
     saveUninitialized: false,
-    cookie: { sameSite: 'lax', secure: IS_VERCEL, httpOnly: true },
+    cookie: { sameSite: 'lax', secure: IS_VERCEL, httpOnly: true, maxAge: SESSION_TTL_SECONDS * 1000 },
   };
   if (pool) {
     const PgSession = connectPgSimple(session);
-    sessionOptions.store = new PgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true });
+    sessionOptions.store = new PgSession({ pool, tableName: 'user_sessions', createTableIfMissing: true, ttl: SESSION_TTL_SECONDS });
   }
   app.use(session(sessionOptions));
   app.use(loadPersistentData);
@@ -317,16 +319,16 @@ app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('fil
     label: text(req.body.label) || req.file.originalname,
     originalName: req.file.originalname,
     fileName,
-    url: `/api/uploads/${encodeURIComponent(req.dashboardId)}/${encodeURIComponent(fileName)}`,
+    url: uploadUrl(req.dashboardId, fileName),
   });
 }));
 
-app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (req, res) => {
+app.get('/api/uploads/:dashboardId/*', requireAuth, asyncHandler(async (req, res) => {
   const dashboard = getDashboardForUser(req.user.email, req.params.dashboardId);
   if (!dashboard) return res.status(403).send('No autorizado');
   if (IS_VERCEL) {
     if (!BLOB_READ_WRITE_TOKEN) return res.status(503).send('El almacenamiento de adjuntos no está configurado.');
-    const fileName = req.params.fileName;
+    const fileName = String(req.params[0] || '');
     if (!fileName.startsWith(`uploads/${dashboard.id}/`) || fileName.includes('..')) return res.status(400).send('Archivo no válido');
     try {
       const blob = await head(fileName, { token: BLOB_READ_WRITE_TOKEN });
@@ -548,6 +550,14 @@ function sanitizeDashboard(input, fallback) {
     admins,
     allowedUsers: parseList(input.allowedUsers || fallback.allowedUsers || []),
     users,
+    tasks: array(input.tasks || fallback.tasks).map((task) => ({
+      id: text(task.id) || id(),
+      task: text(task.task),
+      assignees: parseList(task.assignees || []),
+      dueDate: text(task.dueDate),
+      status: ['nuevo', 'en progreso', 'realizado'].includes(task.status) ? task.status : 'nuevo',
+      createdAt: text(task.createdAt),
+    })),
     reminder: sanitizeReminder(input.reminder || fallback.reminder || defaultReminder()),
     smtp: sanitizeSmtp(input.smtp || {}, fallback.smtp || defaultSmtp()),
     frequentLinks: array(input.frequentLinks).map((item) => ({
@@ -958,6 +968,10 @@ function safeNextUrl(value) {
 function safeFileName(value) {
   const name = path.basename(String(value || 'archivo')).replace(/[^A-Za-z0-9._-]/g, '-').replace(/-+/g, '-');
   return name.slice(0, 120) || 'archivo';
+}
+
+function uploadUrl(dashboardId, fileName) {
+  return `/api/uploads/${encodeURIComponent(dashboardId)}/${String(fileName || '').split('/').map(encodeURIComponent).join('/')}`;
 }
 
 function formatDate(value) {

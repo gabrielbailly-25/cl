@@ -55,6 +55,7 @@ function bindEvents() {
   $('#addIssueButton').addEventListener('click', () => openIssueModal());
   $('#exportIssuesButton').addEventListener('click', exportIssuesCsv);
   $('#exportPendingTasksButton').addEventListener('click', exportPendingTasksCsv);
+  $('#addPendingTaskButton').addEventListener('click', () => openTaskModal());
   $('#addAgreementButton').addEventListener('click', () => openAgreementModal());
   $('#exportAgreementsButton').addEventListener('click', exportAgreementsCsv);
   $('#addTableButton').addEventListener('click', () => openTableModal());
@@ -498,12 +499,17 @@ function renderIssues() {
     const row = document.createElement('tr');
     row.className = `clickable-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
-    row.innerHTML = `<td>${escapeHtml(formatDate(issue.date))}</td><td>${tableText(issue.title)}</td><td>${userChip(issue.addedBy)}</td><td>${escapeHtml(String((issue.tasks || []).length))}</td><td>${issueReadCell(issue)}</td><td>${statusChip(issue.status)}</td>`;
+    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td>${tableText(issue.title)}</td><td>${userChip(issue.addedBy)}</td><td>${escapeHtml(String((issue.tasks || []).length))}</td><td>${issueReadCell(issue)}</td><td>${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
     row.querySelector('[data-mark-issue-read]').addEventListener('click', (event) => toggleIssueRead(event, issue.id));
+    const status = row.querySelector('[data-inline-issue-status]');
+    status.addEventListener('click', (event) => event.stopPropagation());
+    status.addEventListener('change', () => updateIssueStatus(issue.id, status.value));
+    const date = row.querySelector('[data-inline-issue-date]');
+    date.addEventListener('click', (event) => event.stopPropagation());
+    date.addEventListener('change', () => updateIssueDate(issue.id, date.value));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
-    actions.innerHTML = tableRowDragHandle();
     actions.append(button('Editar', (event) => {
       event.stopPropagation();
       openIssueModal(issue);
@@ -552,15 +558,49 @@ async function toggleIssueRead(event, issueId) {
   }
 }
 
+async function updateIssueStatus(issueId, status) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  if (!issue || !statuses.includes(status) || issue.status === status) return;
+  const previous = issue.status;
+  issue.status = status;
+  try {
+    await persist();
+  } catch (error) {
+    issue.status = previous;
+    render();
+    showToast(error.message);
+  }
+}
+
+async function updateIssueDate(issueId, date) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  if (!issue || issue.date === date) return;
+  const previous = issue.date;
+  issue.date = date;
+  try {
+    await persist();
+  } catch (error) {
+    issue.date = previous;
+    render();
+    showToast(error.message);
+  }
+}
+
 function openIssueView(issue) {
   state.viewingIssueId = issue.id;
-  setIssueViewHeaderAction();
+  const edit = button('Editar', () => {
+    issueViewModal.close();
+    openIssueModal(issue);
+  });
+  setIssueViewHeaderAction(edit);
+  $('#issueViewKind').textContent = 'Asunto';
   $('#issueViewTitle').textContent = issue.title || 'Sin título';
   $('#issueViewContent').innerHTML = `
     <dl class="issue-meta">
       <div><dt>Fecha</dt><dd>${escapeHtml(formatDate(issue.date) || 'Sin fecha')}</dd></div>
       <div><dt>Añadido por</dt><dd>${userChip(issue.addedBy)}</dd></div>
-        <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
+      <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
+      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => userChip(reader)).join('') : '<span class="muted-text">Nadie</span>'}</dd></div>
     </dl>
     <section class="issue-section">
       <h3>Descripción</h3>
@@ -599,8 +639,13 @@ function renderIssueAttachments(attachments) {
   return `<div class="attachment-list">${attachments.map((attachment) => {
     const label = attachment.label || attachment.originalName || attachment.url || 'Documento';
     const isFile = attachment.type === 'file' || attachment.fileName;
-    return `<a class="attachment-link" href="${escapeAttr(attachment.url)}" target="_blank" rel="noopener"${isFile ? ' download' : ''}>${escapeHtml(label)}<span>${isFile ? 'Descargar' : 'Visitar'}</span></a>`;
+    return `<a class="attachment-link" href="${escapeAttr(attachmentDownloadUrl(attachment))}" target="_blank" rel="noopener"${isFile ? ' download' : ''}>${escapeHtml(label)}<span>${isFile ? 'Descargar' : 'Visitar'}</span></a>`;
   }).join('')}</div>`;
+}
+
+function attachmentDownloadUrl(attachment) {
+  if (!attachment.fileName) return attachment.url;
+  return uploadUrl(state.activeDashboard, attachment.fileName);
 }
 
 function renderIssueTasks(tasks) {
@@ -682,8 +727,7 @@ async function deleteIssueComment(issueId, commentId) {
 
 function renderPendingTasks() {
   const tasks = pendingTasks();
-  $('#pendingTasksPanel').classList.toggle('hidden', !tasks.length);
-  if (!tasks.length) return;
+  $('#pendingTasksPanel').classList.remove('hidden');
   const columns = [
     { key: 'issueTitle', label: 'Asunto' },
     { key: 'task', label: 'Tarea' },
@@ -703,8 +747,16 @@ function renderPendingTasks() {
   rows.forEach((task) => {
     const row = document.createElement('tr');
     row.className = 'clickable-row';
-    row.innerHTML = `<td>${issueChip(task.issueTitle)}</td><td>${tableText(task.task)}</td><td>${tableText(task.assigneesText)}</td><td>${escapeHtml(task.dueDateText)}</td><td>${statusChip(task.status)}</td>`;
+    row.dataset.tableRowId = task.taskId;
+    row.dataset.issueId = task.issueId;
+    row.innerHTML = `<td class="table-first-cell">${task.issueId ? tableRowDragHandle() : ''}${issueChip(task.issueTitle, task.issueId)}</td><td>${tableText(task.task)}</td><td>${assigneeChips(task.assignees)}</td><td>${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td>${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openTaskView(task)));
+    const status = row.querySelector('[data-inline-task-status]');
+    status.addEventListener('click', (event) => event.stopPropagation());
+    status.addEventListener('change', () => updateTaskStatus(task.issueId, task.taskId, status.value));
+    const date = row.querySelector('[data-inline-task-date]');
+    date.addEventListener('click', (event) => event.stopPropagation());
+    date.addEventListener('change', () => updateTaskDueDate(task.issueId, task.taskId, date.value));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
     actions.append(button('Editar', (event) => {
@@ -718,6 +770,37 @@ function renderPendingTasks() {
     row.append(actionCell(actions));
     body.append(row);
   });
+  enablePendingTaskDragging(body);
+}
+
+async function updateTaskStatus(issueId, taskId, status) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  const task = issue ? issue.tasks.find((item) => item.id === taskId) : state.data.tasks.find((item) => item.id === taskId);
+  if (!task || !statuses.includes(status) || task.status === status) return;
+  const previous = task.status;
+  task.status = status;
+  try {
+    await persist();
+  } catch (error) {
+    task.status = previous;
+    render();
+    showToast(error.message);
+  }
+}
+
+async function updateTaskDueDate(issueId, taskId, date) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  const task = issue ? issue.tasks.find((item) => item.id === taskId) : state.data.tasks.find((item) => item.id === taskId);
+  if (!task || task.dueDate === date) return;
+  const previous = task.dueDate;
+  task.dueDate = date;
+  try {
+    await persist();
+  } catch (error) {
+    task.dueDate = previous;
+    render();
+    showToast(error.message);
+  }
 }
 
 function exportPendingTasksCsv() {
@@ -725,7 +808,7 @@ function exportPendingTasksCsv() {
 }
 
 function pendingTasks() {
-  return (state.data.issues || []).flatMap((issue) => (issue.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
+  const issueTasks = (state.data.issues || []).flatMap((issue) => (issue.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
     ...task,
     task: task.task || 'Tarea sin título',
     assigneesText: formatAssignees(task.assignees),
@@ -735,7 +818,20 @@ function pendingTasks() {
     issueTitle: issue.title,
     issueId: issue.id,
     taskId: task.id,
-  }))).sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  })));
+  const standaloneTasks = (state.data.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
+    ...task,
+    task: task.task || 'Tarea sin título',
+    assigneesText: formatAssignees(task.assignees),
+    dueDate: task.dueDate || '',
+    dueDateText: formatDate(task.dueDate),
+    status: task.status || 'nuevo',
+    issueTitle: 'Sin asunto',
+    issueId: '',
+    taskId: task.id,
+    standalone: true,
+  }));
+  return [...issueTasks, ...standaloneTasks].sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
 }
 
 function openTaskView(task) {
@@ -744,6 +840,7 @@ function openTaskView(task) {
     openTaskModal(task);
   });
   setIssueViewHeaderAction(edit);
+  $('#issueViewKind').textContent = 'Tarea';
   $('#issueViewTitle').textContent = task.task || 'Tarea sin título';
   $('#issueViewContent').innerHTML = `
     <dl class="issue-meta task-meta">
@@ -838,7 +935,10 @@ function renderAgreements() {
     row.className = isRecentRow('agreements', agreement.id) ? 'recent-row' : '';
     row.dataset.tableRowId = agreement.id;
     const attachments = agreement.attachments && agreement.attachments.length ? renderIssueAttachments(agreement.attachments) : '';
-    row.innerHTML = `<td>${escapeHtml(formatDate(agreement.date))}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
+    row.innerHTML = `<td>${inlineDateInput(agreement.date, 'agreement', agreement.id)}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
+    const date = row.querySelector('[data-inline-agreement-date]');
+    date.addEventListener('click', (event) => event.stopPropagation());
+    date.addEventListener('change', () => updateAgreementDate(agreement.id, date.value));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
     actions.innerHTML = tableRowDragHandle();
@@ -847,6 +947,20 @@ function renderAgreements() {
     body.append(row);
   });
   enableTableRowDragging(body, state.data.agreements, 'agreements');
+}
+
+async function updateAgreementDate(agreementId, date) {
+  const agreement = state.data.agreements.find((item) => item.id === agreementId);
+  if (!agreement || agreement.date === date) return;
+  const previous = agreement.date;
+  agreement.date = date;
+  try {
+    await persist();
+  } catch (error) {
+    agreement.date = previous;
+    render();
+    showToast(error.message);
+  }
 }
 
 function exportAgreementsCsv() {
@@ -919,7 +1033,7 @@ function renderCustomTables() {
     wrap.className = 'table-wrap';
     const columns = table.fields.map((field) => ({ key: field.id, label: field.label, type: field.type }));
     const rows = filteredRows(table.id, table.rows, columns, (row, key) => formatCustomValue(table.fields.find((field) => field.id === key), row.values[key]));
-    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}">${table.fields.map((field) => `<td>${customTableCell(field, row.values[field.id])}</td>`).join('')}<td>${tableRowDragHandle()}<button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
+    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell">${tableRowDragHandle()}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id, table.id)}</td>${table.fields.slice(1).map((field) => `<td>${customInlineTableCell(field, row.values[field.id], row.id, table.id)}</td>`).join('')}<td><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
     wrap.innerHTML = `<table><thead><tr>${columns.map((column) => headerButton(table.id, column)).join('')}<th></th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     wrap.prepend(filterBar(table.id));
     wrap.querySelectorAll('tr[data-view-row] td:not(:last-child)').forEach((cell) => cell.addEventListener('click', (event) => {
@@ -927,10 +1041,33 @@ function renderCustomTables() {
       openCustomRowView(table, table.rows.find((row) => row.id === cell.parentElement.dataset.viewRow));
     }));
     wrap.querySelectorAll('button[data-row]').forEach((edit) => edit.addEventListener('click', () => openCustomRowModal(table, table.rows.find((row) => row.id === edit.dataset.row))));
+    bindCustomInlineFields(wrap, table);
     enableTableRowDragging(wrap.querySelector('tbody'), table.rows, table.id);
     panel.append(wrap);
     list.append(panel);
   });
+}
+
+function bindCustomInlineFields(root, table) {
+  root.querySelectorAll('[data-custom-inline-field]').forEach((field) => {
+    field.addEventListener('click', (event) => event.stopPropagation());
+    field.addEventListener('change', () => updateCustomInlineField(table, field));
+  });
+}
+
+async function updateCustomInlineField(table, field) {
+  const row = table.rows.find((item) => item.id === field.dataset.rowId);
+  const definition = table.fields.find((item) => item.id === field.dataset.fieldId);
+  if (!row || !definition) return;
+  const previous = row.values[definition.id];
+  row.values[definition.id] = definition.type === 'check' ? field.checked : field.value;
+  try {
+    await persist();
+  } catch (error) {
+    row.values[definition.id] = previous;
+    render();
+    showToast(error.message);
+  }
 }
 
 function exportCustomTableCsv(table) {
@@ -1081,6 +1218,40 @@ function enableTableRowDragging(body, rows, tableId) {
   });
 }
 
+function enablePendingTaskDragging(body) {
+  if (!activeDashboard().isAdmin || !body) return;
+  body.querySelectorAll('[data-table-row-drag-handle]').forEach((handle) => {
+    handle.addEventListener('pointerdown', (event) => startPendingTaskDrag(event, body, handle.closest('[data-table-row-id]')));
+  });
+}
+
+function startPendingTaskDrag(event, body, row) {
+  if (!row) return;
+  event.preventDefault();
+  const issue = state.data.issues.find((item) => item.id === row.dataset.issueId);
+  if (!issue) return;
+  row.classList.add('dragging');
+  let moved = false;
+  const move = (moveEvent) => {
+    const target = document.elementFromPoint(moveEvent.clientX, moveEvent.clientY)?.closest('[data-table-row-id]');
+    if (!target || target === row || target.parentElement !== body || target.dataset.issueId !== issue.id) return;
+    const after = moveEvent.clientY > target.getBoundingClientRect().top + target.offsetHeight / 2;
+    body.insertBefore(row, after ? target.nextSibling : target);
+    reorderTableRows(issue.tasks, row.dataset.tableRowId, target.dataset.tableRowId, after);
+    moved = true;
+  };
+  const finish = async () => {
+    document.removeEventListener('pointermove', move);
+    document.removeEventListener('pointerup', finish);
+    document.removeEventListener('pointercancel', finish);
+    row.classList.remove('dragging');
+    if (moved) await persist();
+  };
+  document.addEventListener('pointermove', move);
+  document.addEventListener('pointerup', finish, { once: true });
+  document.addEventListener('pointercancel', finish, { once: true });
+}
+
 function startTableRowDrag(event, body, rows, tableId, row) {
   if (!row) return;
   event.preventDefault();
@@ -1178,6 +1349,7 @@ function filterBar(tableId) {
   bar.append(filterInput(tableId));
   bar.append(button('Limpiar', () => {
     getTableState(tableId).filter = '';
+    bar.querySelector('.table-filter').value = '';
     render();
   }, 'secondary small-button'));
   refreshFilterControls(bar, tableId);
@@ -1271,7 +1443,7 @@ function openIssueModal(issue = null) {
     fields: [
       inputField('date', 'Fecha', issue ? issue.date : today(), 'date'),
       inputField('title', 'Título', issue && issue.title),
-      inputField('addedBy', 'Quién lo ha añadido', issue ? issue.addedBy : displayUser()),
+      issueAuthorField(issue ? issue.addedBy : state.me.email),
       statusChipField('status', 'Estado', issue && issue.status),
       richTextField('description', 'Descripción', issue && issue.description),
       attachmentsField(issue && issue.attachments),
@@ -1284,17 +1456,17 @@ function openIssueModal(issue = null) {
 function openTaskModal(task) {
   openModal({
     type: 'task',
-    issueId: task.issueId,
-    taskId: task.taskId,
-    title: 'Editar tarea',
+    issueId: task && task.issueId,
+    taskId: task && task.taskId,
+    title: task ? 'Editar tarea' : 'Añadir tarea pendiente',
     fields: [
-      taskIssueField(task.issueTitle, task.issueId),
-      inputField('task', 'Tarea', task.task),
-      taskAssigneesField(task.assignees || []),
-      inputField('dueDate', 'Fecha límite', task.dueDate, 'date'),
-      compactStatusField(task.status),
+      ...(task && task.issueId ? [taskIssueField(task.issueTitle, task.issueId)] : []),
+      inputField('task', 'Tarea', task && task.task),
+      taskAssigneesField(task && task.assignees || []),
+      inputField('dueDate', 'Fecha límite', task && task.dueDate, 'date'),
+      compactStatusField(task && task.status),
     ],
-    deletable: true,
+    deletable: Boolean(task),
   });
 }
 
@@ -1371,10 +1543,14 @@ async function saveCurrent(event) {
   if (!values) return;
   const id = state.modal.id || uid();
   const isNew = !state.modal.id;
-  const newRowTable = state.modal.type === 'issue' ? 'issues' : state.modal.type === 'agreement' ? 'agreements' : state.modal.type === 'customRow' ? state.modal.tableId : '';
+  const newRowTable = state.modal.type === 'issue' ? 'issues' : state.modal.type === 'agreement' ? 'agreements' : state.modal.type === 'customRow' ? state.modal.tableId : state.modal.type === 'task' ? 'pendingTasks' : '';
   if (state.modal.type === 'link') upsert(state.data.frequentLinks, { id, title: values.title, url: values.url });
   if (state.modal.type === 'issue') upsert(state.data.issues, { id, date: values.date, title: values.title, addedBy: values.addedBy, status: values.status, description: values.description, attachments: values.attachments, tasks: values.tasks, comments: state.modal.comments || [], readBy: state.modal.readBy || [] }, isNew);
-  if (state.modal.type === 'task') updateTask(state.modal.issueId, state.modal.taskId, { task: values.task, assignees: values.assignees, dueDate: values.dueDate, status: values.status });
+  if (state.modal.type === 'task') {
+    const nextTask = { task: values.task, assignees: values.assignees, dueDate: values.dueDate, status: values.status, createdAt: new Date().toISOString() };
+    if (state.modal.issueId) updateTask(state.modal.issueId, state.modal.taskId, nextTask);
+    else upsert(state.data.tasks, { id, ...nextTask }, isNew);
+  }
   if (state.modal.type === 'agreement') upsert(state.data.agreements, { id, date: values.date, title: values.title, description: values.description, attachments: values.attachments }, isNew);
   if (state.modal.type === 'sectionTitle') state.data.sectionTitles[state.modal.sectionId] = values.title;
   if (state.modal.type === 'dashboardTitle') {
@@ -1496,9 +1672,12 @@ async function readModalValues() {
 async function persist() {
   state.isPersisting = true;
   state.dataVersion += 1;
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
   try {
     state.data = normalizeData(await api(`/api/data?dashboard=${encodeURIComponent(state.activeDashboard)}`, { method: 'PUT', body: state.data }));
     render();
+    window.requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
   } finally {
     state.isPersisting = false;
   }
@@ -1661,6 +1840,14 @@ function tableFieldsEditor(fields = [], allowCsvImport = false) {
   box.innerHTML = '<label>Campos de la tabla</label><div class="stack" data-table-fields></div>';
   const list = box.querySelector('[data-table-fields]');
   (fields.length ? fields : [{ id: uid(), label: '', type: 'texto', options: [] }]).forEach((field) => list.append(tableFieldRow(field)));
+  list.addEventListener('dragover', (event) => {
+    event.preventDefault();
+    const dragging = list.querySelector('.field-row.dragging');
+    const target = event.target.closest('.field-row');
+    if (!dragging || !target || dragging === target) return;
+    const before = event.clientY < target.getBoundingClientRect().top + target.offsetHeight / 2;
+    list.insertBefore(dragging, before ? target : target.nextSibling);
+  });
   box.append(button('Añadir campo', () => list.append(tableFieldRow({ id: uid(), label: '', type: 'texto', options: [] })), 'secondary'));
   if (allowCsvImport) box.append(csvImportButton());
   return box;
@@ -1743,7 +1930,12 @@ function csvDelimiterCount(line, delimiter) {
 }
 
 function tableFieldRow(field) {
-  const row = html(`<div class="field-row" data-field-id="${escapeAttr(field.id || field.label || uid())}"><input data-field-label placeholder="Nombre del campo" value="${escapeAttr(field.label || '')}"><select data-field-type>${fieldTypes.map((type) => `<option value="${type}" ${type === field.type ? 'selected' : ''}>${fieldTypeLabels[type]}</option>`).join('')}</select><input data-field-options placeholder="Opciones desplegable, separadas por coma" value="${escapeAttr((field.options || []).join(', '))}"></div>`);
+  const row = html(`<div class="field-row table-field-row" draggable="true" data-field-id="${escapeAttr(field.id || field.label || uid())}"><span class="field-drag-handle" title="Arrastrar campo" aria-label="Arrastrar campo">::</span><input data-field-label placeholder="Nombre del campo" value="${escapeAttr(field.label || '')}"><select data-field-type>${fieldTypes.map((type) => `<option value="${type}" ${type === field.type ? 'selected' : ''}>${fieldTypeLabels[type]}</option>`).join('')}</select><input data-field-options placeholder="Opciones desplegable, separadas por coma" value="${escapeAttr((field.options || []).join(', '))}"></div>`);
+  row.addEventListener('dragstart', (event) => {
+    row.classList.add('dragging');
+    event.dataTransfer.effectAllowed = 'move';
+  });
+  row.addEventListener('dragend', () => row.classList.remove('dragging'));
   row.append(button('Quitar', () => row.remove(), 'secondary small-button'));
   const select = row.querySelector('[data-field-type]');
   const options = row.querySelector('[data-field-options]');
@@ -1801,6 +1993,18 @@ function customDocumentsField(field, value) {
 
 function inputField(name, label, value = '', type = 'text') {
   return html(`<label>${escapeHtml(label)}<input name="${escapeAttr(name)}" type="${type}" value="${escapeAttr(value || '')}"></label>`);
+}
+
+function issueAuthorField(selected = '') {
+  const selectedUser = userForValue(selected);
+  const selectedEmail = selectedUser.email || String(selected).toLowerCase();
+  const box = html(`<div class="stack issue-author-field"><label>Quién lo ha añadido</label><input type="hidden" name="addedBy" value="${escapeAttr(selectedEmail)}"><div class="chip-list">${dashboardUsers().map((user) => `<button type="button" class="chip user-select-chip ${user.email === selectedEmail ? 'selected' : ''}" data-issue-author="${escapeAttr(user.email)}">${userAvatar(user)}<span>${escapeHtml(user.name)}</span></button>`).join('')}</div></div>`);
+  const value = box.querySelector('[name="addedBy"]');
+  box.querySelectorAll('[data-issue-author]').forEach((chip) => chip.addEventListener('click', () => {
+    value.value = chip.dataset.issueAuthor;
+    box.querySelectorAll('[data-issue-author]').forEach((item) => item.classList.toggle('selected', item === chip));
+  }));
+  return box;
 }
 
 function textareaField(name, label, value = '') {
@@ -1990,8 +2194,9 @@ function updateTask(issueId, taskId, nextTask) {
 async function deleteTask(task, closeModal = true, askConfirm = true) {
   if (askConfirm && !window.confirm('¿Eliminar esta tarea?')) return;
   const issue = state.data.issues.find((item) => item.id === task.issueId);
-  if (!issue) return;
-  remove(issue.tasks || [], task.taskId);
+  if (issue) remove(issue.tasks || [], task.taskId);
+  else remove(state.data.tasks || [], task.taskId);
+  if (!issue && !state.data.tasks) return;
   await persist();
   if (closeModal) closeEditModal();
 }
@@ -2043,6 +2248,7 @@ function normalizeData(data) {
   data.allowedUsers = data.allowedUsers || [];
   data.admins = data.admins || [];
   data.users = data.users || {};
+  data.tasks = data.tasks || [];
   data.layoutOrder = data.layoutOrder || [];
   data.collapsedSections = data.collapsedSections || [];
   data.hiddenSections = data.hiddenSections || [];
@@ -2077,6 +2283,11 @@ function formatAssignees(assignees = []) {
   return assignees.map((email) => users[email] && users[email].name || email).join(', ');
 }
 
+function assigneeChips(assignees = []) {
+  if (!assignees.length) return '<span class="muted-text">Sin asignar</span>';
+  return `<div class="table-user-chips">${assignees.map((email) => userChip(email)).join('')}</div>`;
+}
+
 function userChip(value) {
   const user = value && typeof value === 'object' ? { ...value, name: value.name || value.email || 'Sin indicar' } : userForValue(value);
   return `<span class="user-chip">${userAvatar(user)}<span>${escapeHtml(user.name)}</span></span>`;
@@ -2101,6 +2312,10 @@ function userForValue(value) {
   return users.find((user) => String(user.email || '').toLowerCase() === key || String(user.name || '').toLowerCase() === key) || { name: value || 'Sin indicar', email: '' };
 }
 
+function uploadUrl(dashboardId, fileName) {
+  return `/api/uploads/${encodeURIComponent(dashboardId)}/${String(fileName || '').split('/').map(encodeURIComponent).join('/')}`;
+}
+
 function issueChip(value, issueId = '') {
   const content = escapeHtml(value || 'Sin asunto');
   return issueId ? `<button type="button" class="issue-chip issue-link" data-open-issue="${escapeAttr(issueId)}">${content}</button>` : `<span class="issue-chip">${content}</span>`;
@@ -2109,6 +2324,11 @@ function issueChip(value, issueId = '') {
 function statusChip(value) {
   const status = statuses.includes(value) ? value : 'nuevo';
   return `<span class="status status-${statusClass(status)}">${escapeHtml(status)}</span>`;
+}
+
+function inlineStatusSelect(value, type, id) {
+  const status = statuses.includes(value) ? value : 'nuevo';
+  return `<select class="inline-status status-${statusClass(status)}" data-inline-${type}-status="${escapeAttr(id)}" aria-label="Cambiar estado">${statuses.map((item) => `<option value="${escapeAttr(item)}" ${item === status ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>`;
 }
 
 function statusClass(value) {
@@ -2160,6 +2380,13 @@ function customTableCell(field, value) {
   }
   if (field.type === 'textoLargo' && text) return `<span class="table-value-icon" title="${escapeAttr(text)}">&#128172;</span>`;
   return tableText(text);
+}
+
+function customInlineTableCell(field, value, rowId, tableId) {
+  if (field.type === 'fecha') return `<input class="inline-table-input" type="date" value="${escapeAttr(dateInputValue(value))}" data-custom-inline-field data-field-id="${escapeAttr(field.id)}" data-row-id="${escapeAttr(rowId)}" data-table-id="${escapeAttr(tableId)}" aria-label="${escapeAttr(field.label)}">`;
+  if (field.type === 'desplegable') return `<select class="inline-table-input" data-custom-inline-field data-field-id="${escapeAttr(field.id)}" data-row-id="${escapeAttr(rowId)}" data-table-id="${escapeAttr(tableId)}" aria-label="${escapeAttr(field.label)}"><option value=""></option>${(field.options || []).map((option) => `<option value="${escapeAttr(option)}" ${String(option) === String(value) ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
+  if (field.type === 'check') return `<input class="inline-table-checkbox" type="checkbox" ${value === true || value === 'true' ? 'checked' : ''} data-custom-inline-field data-field-id="${escapeAttr(field.id)}" data-row-id="${escapeAttr(rowId)}" data-table-id="${escapeAttr(tableId)}" aria-label="${escapeAttr(field.label)}">`;
+  return customTableCell(field, value);
 }
 
 function tableText(value) {

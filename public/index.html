@@ -18,7 +18,7 @@
     <link rel="manifest" href="/manifest.webmanifest?v=20260822">
     <link rel="icon" type="image/png" href="/images/app-icon.png?v=20260822">
     <link rel="apple-touch-icon" href="/images/app-icon.png?v=20260822">
-    <link rel="stylesheet" href="/styles.css?v=20260821-4800">
+    <link rel="stylesheet" href="/styles.css?v=20260821-5100">
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   </head>
   <body>
@@ -125,6 +125,7 @@
             <button type="button" class="icon-button section-edit-button" data-edit-section-title="pendingTasks" aria-label="Editar título">✏️</button>
             <button id="exportPendingTasksButton" type="button" class="icon-button section-export-button" aria-label="Exportar Tareas pendientes a CSV">&#8595;</button>
           </div>
+          <div class="link-actions"><button id="addPendingTaskButton" type="button">Añadir tarea</button></div>
         </div>
         <div class="table-wrap">
           <table>
@@ -255,7 +256,7 @@
       <article class="modal-card issue-view-card">
         <div class="section-title">
           <div>
-            <p class="eyebrow">Asunto</p>
+            <p id="issueViewKind" class="eyebrow">Asunto</p>
             <h2 id="issueViewTitle"></h2>
           </div>
           <div id="issueViewHeaderActions" class="modal-header-actions"><button type="button" id="closeIssueView" class="modal-close-button">Cerrar</button></div>
@@ -290,6 +291,6 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script src="/app.js?v=20260821-5000"></script>
+    <script src="/app.js?v=20260821-5900"></script>
   </body>
 </html>
