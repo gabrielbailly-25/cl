@@ -203,9 +203,17 @@ app.get('/api/auth/google', (req, res, next) => {
 
 app.get('/api/auth/google/callback', (req, res, next) => {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) return res.redirect('/?login=google-disabled');
-  next();
-}, passport.authenticate('google', { failureRedirect: '/?login=denied' }), (req, res) => {
-  res.redirect(safeNextUrl(req.query.state) || '/');
+  passport.authenticate('google', (error, user) => {
+    if (error) return next(error);
+    if (!user) return res.redirect('/?login=denied');
+    req.logIn(user, (loginError) => {
+      if (loginError) return next(loginError);
+      req.session.save((saveError) => {
+        if (saveError) return next(saveError);
+        res.redirect(safeNextUrl(req.query.state) || '/');
+      });
+    });
+  })(req, res, next);
 });
 
 app.post('/api/logout', requireAuth, (req, res) => {
