@@ -499,9 +499,15 @@ function renderIssues() {
     const row = document.createElement('tr');
     row.className = `clickable-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
-    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${escapeHtml(formatDate(issue.date))}</td><td>${tableText(issue.title)}</td><td>${userChip(issue.addedBy)}</td><td>${escapeHtml(String((issue.tasks || []).length))}</td><td>${issueReadCell(issue)}</td><td>${statusChip(issue.status)}</td>`;
+    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td>${tableText(issue.title)}</td><td>${userChip(issue.addedBy)}</td><td>${escapeHtml(String((issue.tasks || []).length))}</td><td>${issueReadCell(issue)}</td><td>${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
     row.querySelector('[data-mark-issue-read]').addEventListener('click', (event) => toggleIssueRead(event, issue.id));
+    const date = row.querySelector('[data-inline-issue-date]');
+    date.addEventListener('click', (event) => event.stopPropagation());
+    date.addEventListener('change', () => updateIssueDate(issue.id, date.value));
+    const status = row.querySelector('[data-inline-issue-status]');
+    status.addEventListener('click', (event) => event.stopPropagation());
+    status.addEventListener('change', () => updateIssueStatus(issue.id, status.value));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
     actions.append(button('Editar', (event) => {
@@ -549,6 +555,22 @@ async function toggleIssueRead(event, issueId) {
     issue.readBy = previous;
     showToast(error.message);
   }
+}
+
+async function updateIssueDate(issueId, date) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  if (!issue || issue.date === date) return;
+  const previous = issue.date;
+  issue.date = date;
+  try { await persist(); } catch (error) { issue.date = previous; render(); showToast(error.message); }
+}
+
+async function updateIssueStatus(issueId, status) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  if (!issue || !statuses.includes(status) || issue.status === status) return;
+  const previous = issue.status;
+  issue.status = status;
+  try { await persist(); } catch (error) { issue.status = previous; render(); showToast(error.message); }
 }
 
 function openIssueView(issue) {
@@ -702,8 +724,14 @@ function renderPendingTasks() {
   rows.forEach((task) => {
     const row = document.createElement('tr');
     row.className = 'clickable-row';
-    row.innerHTML = `<td>${issueChip(task.issueTitle)}</td><td>${tableText(task.task)}</td><td>${tableText(task.assigneesText)}</td><td>${escapeHtml(task.dueDateText)}</td><td>${statusChip(task.status)}</td>`;
+    row.innerHTML = `<td>${issueChip(task.issueTitle)}</td><td>${tableText(task.task)}</td><td>${tableText(task.assigneesText)}</td><td>${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td>${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openTaskView(task)));
+    const date = row.querySelector('[data-inline-task-date]');
+    date.addEventListener('click', (event) => event.stopPropagation());
+    date.addEventListener('change', () => updateTaskDueDate(task.issueId, task.taskId, date.value));
+    const status = row.querySelector('[data-inline-task-status]');
+    status.addEventListener('click', (event) => event.stopPropagation());
+    status.addEventListener('change', () => updateTaskStatus(task.issueId, task.taskId, status.value));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
     actions.append(button('Editar', (event) => {
@@ -717,6 +745,24 @@ function renderPendingTasks() {
     row.append(actionCell(actions));
     body.append(row);
   });
+}
+
+async function updateTaskDueDate(issueId, taskId, date) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  const task = issue ? issue.tasks.find((item) => item.id === taskId) : state.data.tasks.find((item) => item.id === taskId);
+  if (!task || task.dueDate === date) return;
+  const previous = task.dueDate;
+  task.dueDate = date;
+  try { await persist(); } catch (error) { task.dueDate = previous; render(); showToast(error.message); }
+}
+
+async function updateTaskStatus(issueId, taskId, status) {
+  const issue = state.data.issues.find((item) => item.id === issueId);
+  const task = issue ? issue.tasks.find((item) => item.id === taskId) : state.data.tasks.find((item) => item.id === taskId);
+  if (!task || !statuses.includes(status) || task.status === status) return;
+  const previous = task.status;
+  task.status = status;
+  try { await persist(); } catch (error) { task.status = previous; render(); showToast(error.message); }
 }
 
 function exportPendingTasksCsv() {
@@ -849,7 +895,10 @@ function renderAgreements() {
     row.className = isRecentRow('agreements', agreement.id) ? 'recent-row' : '';
     row.dataset.tableRowId = agreement.id;
     const attachments = agreement.attachments && agreement.attachments.length ? renderIssueAttachments(agreement.attachments) : '';
-    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${escapeHtml(formatDate(agreement.date))}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
+    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${inlineDateInput(agreement.date, 'agreement', agreement.id)}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
+    const date = row.querySelector('[data-inline-agreement-date]');
+    date.addEventListener('click', (event) => event.stopPropagation());
+    date.addEventListener('change', () => updateAgreementDate(agreement.id, date.value));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
     actions.append(button('Editar', () => openAgreementModal(agreement)));
@@ -857,6 +906,14 @@ function renderAgreements() {
     body.append(row);
   });
   enableTableRowDragging(body, state.data.agreements, 'agreements');
+}
+
+async function updateAgreementDate(agreementId, date) {
+  const agreement = state.data.agreements.find((item) => item.id === agreementId);
+  if (!agreement || agreement.date === date) return;
+  const previous = agreement.date;
+  agreement.date = date;
+  try { await persist(); } catch (error) { agreement.date = previous; render(); showToast(error.message); }
 }
 
 function exportAgreementsCsv() {
@@ -929,7 +986,7 @@ function renderCustomTables() {
     wrap.className = 'table-wrap';
     const columns = table.fields.map((field) => ({ key: field.id, label: field.label, type: field.type }));
     const rows = filteredRows(table.id, table.rows, columns, (row, key) => formatCustomValue(table.fields.find((field) => field.id === key), row.values[key]));
-    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell">${tableRowDragHandle()}${customTableCell(table.fields[0], row.values[table.fields[0].id])}</td>${table.fields.slice(1).map((field) => `<td>${customTableCell(field, row.values[field.id])}</td>`).join('')}<td><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
+    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell">${tableRowDragHandle()}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id)}</td>${table.fields.slice(1).map((field) => `<td>${customInlineTableCell(field, row.values[field.id], row.id)}</td>`).join('')}<td><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
     wrap.innerHTML = `<table><thead><tr>${columns.map((column) => headerButton(table.id, column)).join('')}<th></th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     wrap.prepend(filterBar(table.id));
     wrap.querySelectorAll('tr[data-view-row] td:not(:last-child)').forEach((cell) => cell.addEventListener('click', (event) => {
@@ -937,10 +994,23 @@ function renderCustomTables() {
       openCustomRowView(table, table.rows.find((row) => row.id === cell.parentElement.dataset.viewRow));
     }));
     wrap.querySelectorAll('button[data-row]').forEach((edit) => edit.addEventListener('click', () => openCustomRowModal(table, table.rows.find((row) => row.id === edit.dataset.row))));
+    wrap.querySelectorAll('[data-custom-inline-field]').forEach((field) => {
+      field.addEventListener('click', (event) => event.stopPropagation());
+      field.addEventListener('change', () => updateCustomInlineField(table, field));
+    });
     enableTableRowDragging(wrap.querySelector('tbody'), table.rows, table.id);
     panel.append(wrap);
     list.append(panel);
   });
+}
+
+async function updateCustomInlineField(table, field) {
+  const row = table.rows.find((item) => item.id === field.dataset.rowId);
+  const definition = table.fields.find((item) => item.id === field.dataset.fieldId);
+  if (!row || !definition) return;
+  const previous = row.values[definition.id];
+  row.values[definition.id] = definition.type === 'check' ? field.checked : field.value;
+  try { await persist(); } catch (error) { row.values[definition.id] = previous; render(); showToast(error.message); }
 }
 
 function exportCustomTableCsv(table) {
@@ -1504,11 +1574,14 @@ async function readModalValues() {
 }
 
 async function persist() {
+  const scrollX = window.scrollX;
+  const scrollY = window.scrollY;
   state.isPersisting = true;
   state.dataVersion += 1;
   try {
     state.data = normalizeData(await api(`/api/data?dashboard=${encodeURIComponent(state.activeDashboard)}`, { method: 'PUT', body: state.data }));
     render();
+    window.requestAnimationFrame(() => window.scrollTo(scrollX, scrollY));
   } finally {
     state.isPersisting = false;
   }
@@ -2138,6 +2211,15 @@ function statusChip(value) {
   return `<span class="status status-${statusClass(status)}">${escapeHtml(status)}</span>`;
 }
 
+function inlineDateInput(value, type, id) {
+  return `<input class="inline-table-input" type="date" value="${escapeAttr(dateInputValue(value))}" data-inline-${type}-date="${escapeAttr(id)}" aria-label="Fecha">`;
+}
+
+function inlineStatusSelect(value, type, id) {
+  const status = statuses.includes(value) ? value : 'nuevo';
+  return `<select class="inline-table-input" data-inline-${type}-status="${escapeAttr(id)}" aria-label="Estado">${statuses.map((item) => `<option value="${escapeAttr(item)}" ${item === status ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>`;
+}
+
 function statusClass(value) {
   return String(value || 'nuevo').replaceAll(' ', '-');
 }
@@ -2187,6 +2269,14 @@ function customTableCell(field, value) {
   }
   if (field.type === 'textoLargo' && text) return `<span class="table-value-icon" title="${escapeAttr(text)}">&#128172;</span>`;
   return tableText(text);
+}
+
+function customInlineTableCell(field, value, rowId) {
+  const attrs = `data-custom-inline-field data-field-id="${escapeAttr(field.id)}" data-row-id="${escapeAttr(rowId)}" aria-label="${escapeAttr(field.label)}"`;
+  if (field.type === 'fecha') return `<input class="inline-table-input" type="date" value="${escapeAttr(dateInputValue(value))}" ${attrs}>`;
+  if (field.type === 'desplegable') return `<select class="inline-table-input" ${attrs}><option value=""></option>${(field.options || []).map((option) => `<option value="${escapeAttr(option)}" ${String(option) === String(value) ? 'selected' : ''}>${escapeHtml(option)}</option>`).join('')}</select>`;
+  if (field.type === 'check') return `<input class="inline-table-checkbox" type="checkbox" ${value === true || value === 'true' ? 'checked' : ''} ${attrs}>`;
+  return customTableCell(field, value);
 }
 
 function tableText(value) {
