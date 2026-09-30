@@ -499,12 +499,11 @@ function renderIssues() {
     const row = document.createElement('tr');
     row.className = `clickable-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
-    row.innerHTML = `<td>${escapeHtml(formatDate(issue.date))}</td><td>${tableText(issue.title)}</td><td>${userChip(issue.addedBy)}</td><td>${escapeHtml(String((issue.tasks || []).length))}</td><td>${issueReadCell(issue)}</td><td>${statusChip(issue.status)}</td>`;
+    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${escapeHtml(formatDate(issue.date))}</td><td>${tableText(issue.title)}</td><td>${userChip(issue.addedBy)}</td><td>${escapeHtml(String((issue.tasks || []).length))}</td><td>${issueReadCell(issue)}</td><td>${statusChip(issue.status)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
     row.querySelector('[data-mark-issue-read]').addEventListener('click', (event) => toggleIssueRead(event, issue.id));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
-    actions.innerHTML = tableRowDragHandle();
     actions.append(button('Editar', (event) => {
       event.stopPropagation();
       openIssueModal(issue);
@@ -849,10 +848,9 @@ function renderAgreements() {
     row.className = isRecentRow('agreements', agreement.id) ? 'recent-row' : '';
     row.dataset.tableRowId = agreement.id;
     const attachments = agreement.attachments && agreement.attachments.length ? renderIssueAttachments(agreement.attachments) : '';
-    row.innerHTML = `<td>${escapeHtml(formatDate(agreement.date))}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
+    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${escapeHtml(formatDate(agreement.date))}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
     const actions = document.createElement('div');
     actions.className = 'link-actions';
-    actions.innerHTML = tableRowDragHandle();
     actions.append(button('Editar', () => openAgreementModal(agreement)));
     row.append(actionCell(actions));
     body.append(row);
@@ -930,7 +928,7 @@ function renderCustomTables() {
     wrap.className = 'table-wrap';
     const columns = table.fields.map((field) => ({ key: field.id, label: field.label, type: field.type }));
     const rows = filteredRows(table.id, table.rows, columns, (row, key) => formatCustomValue(table.fields.find((field) => field.id === key), row.values[key]));
-    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}">${table.fields.map((field) => `<td>${customTableCell(field, row.values[field.id])}</td>`).join('')}<td>${tableRowDragHandle()}<button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
+    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell">${tableRowDragHandle()}${customTableCell(table.fields[0], row.values[table.fields[0].id])}</td>${table.fields.slice(1).map((field) => `<td>${customTableCell(field, row.values[field.id])}</td>`).join('')}<td><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
     wrap.innerHTML = `<table><thead><tr>${columns.map((column) => headerButton(table.id, column)).join('')}<th></th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     wrap.prepend(filterBar(table.id));
     wrap.querySelectorAll('tr[data-view-row] td:not(:last-child)').forEach((cell) => cell.addEventListener('click', (event) => {
