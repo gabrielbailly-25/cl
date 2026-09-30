@@ -432,6 +432,7 @@ th { color: var(--muted); font-size: .78rem; text-transform: uppercase; }
 .recent-row td { background: #fff0cf; transition: background 1s ease; }
 .table-row-drag-handle { color: var(--muted); cursor: grab; display: inline-block; font-weight: 800; letter-spacing: -.12rem; margin-right: .45rem; padding: .25rem; touch-action: none; }
 .table-first-cell { white-space: nowrap; }
+.table-checkbox { height: 1.1rem; margin: 0; width: 1.1rem; }
 .read-only-field h3 { font-size: .9rem; margin: 0 0 .25rem; }
 .read-only-field > div { white-space: pre-wrap; }
 .read-only-field a { display: block; width: fit-content; }
@@ -624,6 +625,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   overflow-wrap: anywhere;
   word-break: break-word;
 }
+#issueViewContent > .issue-meta { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .read-by { align-items: flex-start; display: flex; gap: .35rem; }
 .read-toggle { background: transparent; color: var(--brand); font-size: 1.2rem; min-height: 1.5rem; padding: .1rem .25rem; }
 .read-toggle:hover { background: var(--glow); filter: none; }
@@ -897,6 +899,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .brand-title { align-items: center; }
   .user-box { align-items: stretch; }
   .issue-meta, .task-meta { grid-template-columns: 1fr; }
+  #issueViewContent > .issue-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .links-grid, .links-list, .link-row, .task-view-card dl { grid-template-columns: 1fr; }
   .login-card button, .google-button { width: 100%; }
   .login-card #loginForm button,

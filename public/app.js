@@ -559,7 +559,8 @@ function openIssueView(issue) {
     <dl class="issue-meta">
       <div><dt>Fecha</dt><dd>${escapeHtml(formatDate(issue.date) || 'Sin fecha')}</dd></div>
       <div><dt>Añadido por</dt><dd>${userChip(issue.addedBy)}</dd></div>
-        <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
+      <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
+      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => userChip(reader)).join('') : '<span class="muted-text">Nadie</span>'}</dd></div>
     </dl>
     <section class="issue-section">
       <h3>Descripción</h3>
@@ -1280,7 +1281,7 @@ function openIssueModal(issue = null) {
     fields: [
       inputField('date', 'Fecha', issue ? issue.date : today(), 'date'),
       inputField('title', 'Título', issue && issue.title),
-      inputField('addedBy', 'Quién lo ha añadido', issue ? issue.addedBy : displayUser()),
+      issueAuthorField(issue ? issue.addedBy : state.me.email),
       statusChipField('status', 'Estado', issue && issue.status),
       richTextField('description', 'Descripción', issue && issue.description),
       attachmentsField(issue && issue.attachments),
@@ -1812,6 +1813,18 @@ function inputField(name, label, value = '', type = 'text') {
   return html(`<label>${escapeHtml(label)}<input name="${escapeAttr(name)}" type="${type}" value="${escapeAttr(value || '')}"></label>`);
 }
 
+function issueAuthorField(selected = '') {
+  const selectedUser = userForValue(selected);
+  const selectedEmail = selectedUser.email || String(selected).toLowerCase();
+  const box = html(`<div class="stack"><label>Quién lo ha añadido</label><input type="hidden" name="addedBy" value="${escapeAttr(selectedEmail)}"><div class="chip-list">${dashboardUsers().map((user) => `<button type="button" class="chip user-select-chip ${user.email === selectedEmail ? 'selected' : ''}" data-issue-author="${escapeAttr(user.email)}">${userAvatar(user)}<span>${escapeHtml(user.name)}</span></button>`).join('')}</div></div>`);
+  const input = box.querySelector('[name="addedBy"]');
+  box.querySelectorAll('[data-issue-author]').forEach((chip) => chip.addEventListener('click', () => {
+    input.value = chip.dataset.issueAuthor;
+    box.querySelectorAll('[data-issue-author]').forEach((item) => item.classList.toggle('selected', item === chip));
+  }));
+  return box;
+}
+
 function textareaField(name, label, value = '') {
   return html(`<label>${escapeHtml(label)}<textarea name="${escapeAttr(name)}" rows="4">${escapeHtml(value || '')}</textarea></label>`);
 }
@@ -2166,7 +2179,7 @@ function formatCustomValue(field, value) {
 
 function customTableCell(field, value) {
   const text = formatCustomValue(field, value);
-  if (field.type === 'check') return value === true || value === 'true' ? '<span class="table-value-icon" title="Marcado">&#10003;</span>' : '';
+  if (field.type === 'check') return `<input class="table-checkbox" type="checkbox" ${value === true || value === 'true' ? 'checked' : ''} disabled aria-label="${escapeAttr(field.label)}">`;
   if (field.type === 'url' && value) return `<a class="table-value-icon" href="${escapeAttr(value)}" target="_blank" rel="noopener" title="Abrir enlace">&#128279;</a>`;
   if (field.type === 'documento') {
     const documents = Array.isArray(value) ? value : [];
