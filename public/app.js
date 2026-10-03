@@ -55,6 +55,7 @@ function bindEvents() {
   $('#addIssueButton').addEventListener('click', () => openIssueModal());
   $('#exportIssuesButton').addEventListener('click', exportIssuesCsv);
   $('#exportPendingTasksButton').addEventListener('click', exportPendingTasksCsv);
+  $('#exportMyTasksButton').addEventListener('click', exportMyTasksCsv);
   $('#addPendingTaskButton').addEventListener('click', () => openTaskModal());
   $('#addAgreementButton').addEventListener('click', () => openAgreementModal());
   $('#exportAgreementsButton').addEventListener('click', exportAgreementsCsv);
@@ -630,6 +631,7 @@ function renderIssueTasks(tasks) {
   return `<div class="task-view-list">${tasks.map((task) => `
     <article class="task-view-card">
       <div><strong>${escapeHtml(task.task || 'Tarea sin título')}</strong></div>
+      ${task.description ? `<div class="rich-text-content">${renderRichText(task.description)}</div>` : ''}
       <dl>
         <div><dt>Responsables</dt><dd>${escapeHtml(formatAssignees(task.assignees))}</dd></div>
         <div><dt>Fecha límite</dt><dd>${escapeHtml(formatDate(task.dueDate) || 'Sin fecha')}</dd></div>
@@ -769,6 +771,12 @@ function exportPendingTasksCsv() {
   downloadCsv('tareas-pendientes.csv', ['Tarea', 'Asunto', 'Quién/es la deben realizar', 'Fecha límite', 'Estado'], pendingTasks().map((task) => [task.task, task.issueTitle, task.assigneesText, task.dueDateText, task.status]));
 }
 
+function exportMyTasksCsv() {
+  const email = String(state.me.email || '').toLowerCase();
+  const tasks = pendingTasks().filter((task) => (task.assignees || []).some((assignee) => assigneeMatchesUser(assignee, email)));
+  downloadCsv('mis-tareas-pendientes.csv', ['Tarea', 'Asunto', 'Quién/es la deben realizar', 'Fecha límite', 'Estado'], tasks.map((task) => [task.task, task.issueTitle, task.assigneesText, task.dueDateText, task.status]));
+}
+
 function pendingTasks() {
   const relatedTasks = (state.data.issues || []).flatMap((issue) => (issue.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
     ...task,
@@ -809,6 +817,7 @@ function openTaskView(task) {
       <div><dt>Fecha límite</dt><dd>${escapeHtml(task.dueDateText || 'Sin fecha')}</dd></div>
       <div><dt>Estado</dt><dd>${statusChip(task.status)}</dd></div>
     </dl>
+    ${task.description ? `<section class="issue-section"><h3>Descripción</h3><div class="rich-text-content">${renderRichText(task.description)}</div></section>` : ''}
     <div class="actions"><button type="button" id="deleteTaskFromView" class="danger">Eliminar</button></div>
   `;
   $('#deleteTaskFromView').addEventListener('click', () => {
@@ -1370,7 +1379,9 @@ function openTaskModal(task) {
     fields: [
       ...(task && task.issueId ? [taskIssueField(task.issueTitle, task.issueId)] : []),
       inputField('task', 'Tarea', task && task.task),
+      richTextField('description', 'Descripción', task && task.description),
       taskAssigneesField(task && task.assignees || []),
+      taskCompletionField(task && task.assignees || [], task && task.completedBy || []),
       inputField('dueDate', 'Fecha límite', task && task.dueDate, 'date'),
       compactStatusField(task && task.status),
     ],
@@ -1454,7 +1465,7 @@ async function saveCurrent(event) {
   const newRowTable = state.modal.type === 'issue' ? 'issues' : state.modal.type === 'agreement' ? 'agreements' : state.modal.type === 'customRow' ? state.modal.tableId : '';
   if (state.modal.type === 'link') upsert(state.data.frequentLinks, { id, title: values.title, url: values.url });
   if (state.modal.type === 'issue') upsert(state.data.issues, { id, date: values.date, title: values.title, addedBy: values.addedBy, status: values.status, description: values.description, attachments: values.attachments, tasks: values.tasks, comments: state.modal.comments || [], readBy: state.modal.readBy || [] }, isNew);
-  if (state.modal.type === 'task') updateTask(state.modal.issueId, state.modal.taskId, { task: values.task, assignees: values.assignees, dueDate: values.dueDate, status: values.status });
+  if (state.modal.type === 'task') updateTask(state.modal.issueId, state.modal.taskId, { task: values.task, description: values.description, assignees: values.assignees, completedBy: values.completedBy, dueDate: values.dueDate, status: values.status });
   if (state.modal.type === 'agreement') upsert(state.data.agreements, { id, date: values.date, title: values.title, description: values.description, attachments: values.attachments }, isNew);
   if (state.modal.type === 'sectionTitle') state.data.sectionTitles[state.modal.sectionId] = values.title;
   if (state.modal.type === 'dashboardTitle') {
@@ -1552,7 +1563,10 @@ async function readModalValues() {
     if (attachment) values.attachments.push(attachment);
   }
   if (state.modal.type === 'issue') values.tasks = readTasks();
-  if (state.modal.type === 'task') values.assignees = readSelectedAssignees(modalFields);
+  if (state.modal.type === 'task') {
+    values.assignees = readSelectedAssignees(modalFields);
+    values.completedBy = [...modalFields.querySelectorAll('[data-task-completed-by]:checked')].map((input) => input.value);
+  }
   if (state.modal.type === 'customRow') {
     for (const field of modalFields.querySelectorAll('[data-custom-documents]')) {
       const documents = [];
@@ -1977,6 +1991,7 @@ function taskRow(task = {}) {
   const createdAt = task.createdAt || (!task.id ? new Date().toISOString() : '');
   const row = html(`<div class="task-row" data-id="${escapeAttr(task.id || '')}" data-created-at="${escapeAttr(createdAt)}">
     <input data-task-title placeholder="Tarea" value="${escapeAttr(task.task || '')}">
+    <textarea data-task-description rows="2" placeholder="Descripción">${escapeHtml(task.description || '')}</textarea>
     ${compactAssigneePicker(task.assignees || [])}
     <input data-task-due-date type="date" value="${escapeAttr(task.dueDate || '')}">
     ${compactStatusPicker(task.status || 'nuevo')}
@@ -2063,7 +2078,8 @@ function readTasks() {
     const assignees = readSelectedAssignees(row);
     const dueDate = row.querySelector('[data-task-due-date]').value;
     const status = row.querySelector('[data-task-status]').value;
-    return task || assignees.length || dueDate ? { id: row.dataset.id || uid(), task, assignees, dueDate, status, createdAt: row.dataset.createdAt || '' } : null;
+    const description = row.querySelector('[data-task-description]').value.trim();
+    return task || description || assignees.length || dueDate ? { id: row.dataset.id || uid(), task, description, assignees, dueDate, status, createdAt: row.dataset.createdAt || '' } : null;
   }).filter(Boolean);
 }
 
