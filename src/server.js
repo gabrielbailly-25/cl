@@ -551,7 +551,9 @@ function sanitizeDashboard(input, fallback) {
     tasks: array(input.tasks || fallback.tasks).map((task) => ({
       id: text(task.id) || id(),
       task: text(task.task),
+      description: richText(task.description),
       assignees: parseList(task.assignees || []),
+      completedBy: parseList(task.completedBy || []),
       dueDate: text(task.dueDate),
       status: ['nuevo', 'en progreso', 'realizado'].includes(task.status) ? task.status : 'nuevo',
       createdAt: text(task.createdAt),
@@ -582,7 +584,9 @@ function sanitizeDashboard(input, fallback) {
       tasks: array(item.tasks).map((task) => ({
         id: text(task.id) || id(),
         task: text(task.task),
+        description: richText(task.description),
         assignees: parseList(task.assignees || []),
+        completedBy: parseList(task.completedBy || []),
         dueDate: text(task.dueDate),
         status: ['nuevo', 'en progreso', 'realizado'].includes(task.status) ? task.status : 'nuevo',
         createdAt: text(task.createdAt),
