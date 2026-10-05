@@ -637,6 +637,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
 .read-users .user-chip { font-size: .72rem; padding: .18rem .45rem .18rem .25rem; }
 .read-users .user-avatar { height: 1.15rem; width: 1.15rem; }
 .read-name { display: inline-block; }
+.inline-status { border-color: transparent; cursor: pointer; min-width: 7rem; padding: .3rem .5rem; }
 .install-prompt-card { display: grid; gap: .8rem; }
 .install-prompt-card p { line-height: 1.5; margin: 0; }
 .install-instructions { color: var(--brand); font-weight: 800; }

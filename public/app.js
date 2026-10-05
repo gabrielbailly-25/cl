@@ -536,7 +536,7 @@ function exportIssuesCsv() {
 function issueReadCell(issue) {
   const readBy = issue.readBy || [];
   const hasRead = readBy.some((reader) => reader.email === String(state.me.email).toLowerCase());
-  const readers = readBy.length ? readBy.map((reader) => `<span class="read-name">${escapeHtml(formatUserLabel(reader.email) || reader.name || reader.email)}</span>`).join('') : '<span class="muted-text">Nadie</span>';
+  const readers = readBy.length ? readBy.map((reader) => userChip(reader.email)).join('') : '<span class="muted-text">Nadie</span>';
   const label = hasRead ? 'Marcar no leído' : 'Marcar leído';
   return `<div class="read-by"><button type="button" class="read-toggle" data-mark-issue-read title="${label}" aria-label="${label}">${hasRead ? '&#8634;' : '&#10003;'}</button><div class="read-users">${readers}</div></div>`;
 }
@@ -583,7 +583,7 @@ function openIssueView(issue) {
       <div><dt>Fecha</dt><dd>${escapeHtml(formatDate(issue.date) || 'Sin fecha')}</dd></div>
       <div><dt>Añadido por</dt><dd>${userChip(issue.addedBy)}</dd></div>
       <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
-      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => `<span class="read-name">${escapeHtml(formatUserLabel(reader.email) || reader.name || reader.email)}</span>`).join(', ') : '<span class="muted-text">Nadie</span>'}</dd></div>
+      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => userChip(reader.email)).join('') : '<span class="muted-text">Nadie</span>'}</dd></div>
     </dl>
     <section class="issue-section">
       <h3>Descripción</h3>
@@ -2246,7 +2246,7 @@ function inlineDateInput(value, type, id) {
 
 function inlineStatusSelect(value, type, id) {
   const status = statuses.includes(value) ? value : 'nuevo';
-  return `<select class="inline-table-input" data-inline-${type}-status="${escapeAttr(id)}" aria-label="Estado">${statuses.map((item) => `<option value="${escapeAttr(item)}" ${item === status ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>`;
+  return `<select class="status status-${statusClass(status)} inline-status" data-inline-${type}-status="${escapeAttr(id)}" aria-label="Estado">${statuses.map((item) => `<option value="${escapeAttr(item)}" ${item === status ? 'selected' : ''}>${escapeHtml(item)}</option>`).join('')}</select>`;
 }
 
 function statusClass(value) {
