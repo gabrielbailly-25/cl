@@ -398,11 +398,13 @@ button:hover, .google-button:hover { filter: brightness(1.08); }
 .table-wrap {
   max-width: 100%;
   min-width: 0;
-  overflow-x: auto;
+  overflow-x: hidden;
   overscroll-behavior-x: contain;
   width: 100%;
   -webkit-overflow-scrolling: touch;
 }
+table { table-layout: fixed; width: 100%; }
+th, td { overflow-wrap: anywhere; word-break: break-word; }
 table {
   border-collapse: collapse;
   min-width: 100%;
@@ -634,6 +636,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
 .read-users { align-items: center; display: flex; flex-wrap: wrap; gap: .25rem; }
 .read-users .user-chip { font-size: .72rem; padding: .18rem .45rem .18rem .25rem; }
 .read-users .user-avatar { height: 1.15rem; width: 1.15rem; }
+.read-name { display: inline-block; }
 .install-prompt-card { display: grid; gap: .8rem; }
 .install-prompt-card p { line-height: 1.5; margin: 0; }
 .install-instructions { color: var(--brand); font-weight: 800; }
@@ -911,4 +914,17 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .login-card .google-button { width: min(100%, 14rem); }
   .table-filter-bar .table-filter { flex: 1 1 auto; max-width: none; width: auto; }
   .table-filter-bar .quick-filters { flex-basis: 100%; margin-left: 0; }
+  .table-wrap { overflow-x: visible; }
+  .table-wrap table, .table-wrap tbody { display: block; }
+  .table-wrap thead { display: none; }
+  .table-wrap tbody { display: grid; gap: .7rem; }
+  .table-wrap tbody tr { background: var(--panel); border: 1px solid var(--line); border-radius: .9rem; display: grid; gap: .15rem; padding: .45rem; }
+  .table-wrap tbody tr td { align-items: center; border: 0; display: flex; gap: .6rem; justify-content: space-between; min-width: 0; padding: .42rem .35rem; text-align: right; }
+  .table-wrap tbody tr td::before { color: var(--muted); content: attr(data-label); flex: 0 0 auto; font-size: .7rem; font-weight: 800; text-align: left; text-transform: uppercase; }
+  .table-wrap tbody tr td:first-child { justify-content: flex-start; text-align: left; }
+  .table-wrap tbody tr td:first-child::before { display: none; }
+  .table-wrap tbody tr td:last-child { justify-content: flex-end; padding-top: .65rem; }
+  .table-wrap tbody tr td:last-child::before { display: none; }
+  .table-row-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .table-wrap .empty { display: block; text-align: center; }
 }

@@ -500,7 +500,7 @@ function renderIssues() {
     const row = document.createElement('tr');
     row.className = `clickable-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
-    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td>${tableText(issue.title)}</td><td>${userChip(issue.addedBy)}</td><td>${escapeHtml(String((issue.tasks || []).length))}</td><td>${issueReadCell(issue)}</td><td>${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle()}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Quién lo ha añadido">${userChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
     row.querySelector('[data-mark-issue-read]').addEventListener('click', (event) => toggleIssueRead(event, issue.id));
     const date = row.querySelector('[data-inline-issue-date]');
@@ -536,7 +536,7 @@ function exportIssuesCsv() {
 function issueReadCell(issue) {
   const readBy = issue.readBy || [];
   const hasRead = readBy.some((reader) => reader.email === String(state.me.email).toLowerCase());
-  const readers = readBy.length ? readBy.map((reader) => userChip(reader)).join('') : '<span class="muted-text">Nadie</span>';
+  const readers = readBy.length ? readBy.map((reader) => `<span class="read-name">${escapeHtml(formatUserLabel(reader.email) || reader.name || reader.email)}</span>`).join('') : '<span class="muted-text">Nadie</span>';
   const label = hasRead ? 'Marcar no leído' : 'Marcar leído';
   return `<div class="read-by"><button type="button" class="read-toggle" data-mark-issue-read title="${label}" aria-label="${label}">${hasRead ? '&#8634;' : '&#10003;'}</button><div class="read-users">${readers}</div></div>`;
 }
@@ -583,7 +583,7 @@ function openIssueView(issue) {
       <div><dt>Fecha</dt><dd>${escapeHtml(formatDate(issue.date) || 'Sin fecha')}</dd></div>
       <div><dt>Añadido por</dt><dd>${userChip(issue.addedBy)}</dd></div>
       <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
-      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => userChip(reader)).join('') : '<span class="muted-text">Nadie</span>'}</dd></div>
+      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => `<span class="read-name">${escapeHtml(formatUserLabel(reader.email) || reader.name || reader.email)}</span>`).join(', ') : '<span class="muted-text">Nadie</span>'}</dd></div>
     </dl>
     <section class="issue-section">
       <h3>Descripción</h3>
@@ -726,7 +726,9 @@ function renderPendingTasks() {
   rows.forEach((task) => {
     const row = document.createElement('tr');
     row.className = 'clickable-row';
-    row.innerHTML = `<td>${issueChip(task.issueTitle)}</td><td>${tableText(task.task)}</td><td>${tableText(task.assigneesText)}</td><td>${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td>${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
+    row.dataset.tableRowId = task.taskId;
+    row.dataset.issueId = task.issueId;
+    row.innerHTML = `<td class="table-first-cell" data-label="Asunto">${task.issueId ? tableRowDragHandle() : ''}${issueChip(task.issueTitle)}</td><td data-label="Tarea">${tableText(task.task)}</td><td data-label="Quién/es la deben realizar">${tableText(task.assigneesText)}</td><td data-label="Fecha límite">${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td data-label="Estado">${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openTaskView(task)));
     const date = row.querySelector('[data-inline-task-date]');
     date.addEventListener('click', (event) => event.stopPropagation());
@@ -747,6 +749,7 @@ function renderPendingTasks() {
     row.append(actionCell(actions));
     body.append(row);
   });
+  enablePendingTaskDragging(body);
 }
 
 async function updateTaskDueDate(issueId, taskId, date) {
@@ -904,7 +907,7 @@ function renderAgreements() {
     row.className = isRecentRow('agreements', agreement.id) ? 'recent-row' : '';
     row.dataset.tableRowId = agreement.id;
     const attachments = agreement.attachments && agreement.attachments.length ? renderIssueAttachments(agreement.attachments) : '';
-    row.innerHTML = `<td class="table-first-cell">${tableRowDragHandle()}${inlineDateInput(agreement.date, 'agreement', agreement.id)}</td><td>${tableText(agreement.title)}</td><td>${tableText(plainText(agreement.description))}</td><td>${attachments}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Fecha del acuerdo">${tableRowDragHandle()}${inlineDateInput(agreement.date, 'agreement', agreement.id)}</td><td data-label="Título">${tableText(agreement.title)}</td><td data-label="Descripción">${tableText(plainText(agreement.description))}</td><td data-label="Adjuntos">${attachments}</td>`;
     const date = row.querySelector('[data-inline-agreement-date]');
     date.addEventListener('click', (event) => event.stopPropagation());
     date.addEventListener('change', () => updateAgreementDate(agreement.id, date.value));
@@ -995,7 +998,7 @@ function renderCustomTables() {
     wrap.className = 'table-wrap';
     const columns = table.fields.map((field) => ({ key: field.id, label: field.label, type: field.type }));
     const rows = filteredRows(table.id, table.rows, columns, (row, key) => formatCustomValue(table.fields.find((field) => field.id === key), row.values[key]));
-    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell">${tableRowDragHandle()}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id)}</td>${table.fields.slice(1).map((field) => `<td>${customInlineTableCell(field, row.values[field.id], row.id)}</td>`).join('')}<td><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
+    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell" data-label="${escapeAttr(table.fields[0].label)}">${tableRowDragHandle()}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id)}</td>${table.fields.slice(1).map((field) => `<td data-label="${escapeAttr(field.label)}">${customInlineTableCell(field, row.values[field.id], row.id)}</td>`).join('')}<td class="table-row-actions"><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
     wrap.innerHTML = `<table><thead><tr>${columns.map((column) => headerButton(table.id, column)).join('')}<th></th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     wrap.prepend(filterBar(table.id));
     wrap.querySelectorAll('tr[data-view-row] td:not(:last-child)').forEach((cell) => cell.addEventListener('click', (event) => {
@@ -1168,6 +1171,16 @@ function enableTableRowDragging(body, rows, tableId) {
   body.querySelectorAll('[data-table-row-drag-handle]').forEach((handle) => {
     handle.addEventListener('pointerdown', (event) => startTableRowDrag(event, body, rows, tableId, handle.closest('[data-table-row-id]')));
   });
+}
+
+function enablePendingTaskDragging(body) {
+  if (!activeDashboard().isAdmin || !body) return;
+  body.querySelectorAll('[data-table-row-drag-handle]').forEach((handle) => handle.addEventListener('pointerdown', (event) => {
+    const row = handle.closest('[data-table-row-id]');
+    const issue = row && state.data.issues.find((item) => item.id === row.dataset.issueId);
+    if (!issue) return;
+    startTableRowDrag(event, body, issue.tasks, `pending-${issue.id}`, row);
+  }));
 }
 
 function startTableRowDrag(event, body, rows, tableId, row) {
