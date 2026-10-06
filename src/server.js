@@ -255,7 +255,7 @@ app.put('/api/users', requireAuth, requireDashboardAdmin, asyncHandler(async (re
   const store = readData();
   const dashboard = store.dashboards[req.dashboardId];
   dashboard.users = dashboard.users || {};
-  const submittedUsers = [...new Map(array(req.body && req.body.users).map((user) => ({ email: text(user.email).toLowerCase(), name: text(user.name), type: text(user.type).toLowerCase() === 'admin' ? 'admin' : 'usuario', password: text(user.password) })).filter((user) => user.email).map((user) => [user.email, user])).values()];
+  const submittedUsers = [...new Map(array(req.body && req.body.users).map((user) => ({ email: text(user.email).toLowerCase(), name: text(user.name), type: ['admin', 'director'].includes(text(user.type).toLowerCase()) ? text(user.type).toLowerCase() : 'usuario', password: text(user.password) })).filter((user) => user.email).map((user) => [user.email, user])).values()];
   const users = submittedUsers.length ? submittedUsers.map((user) => user.email) : parseList(req.body && req.body.allowedUsers || []);
   dashboard.allowedUsers = users;
   dashboard.admins = submittedUsers.filter((user) => user.type === 'admin').map((user) => user.email);
@@ -676,7 +676,8 @@ function sanitizeUsers(users, fallback = {}) {
     const normalizedEmail = text(email).toLowerCase();
     const current = fallback[normalizedEmail] || {};
     const passwordHash = text(user.passwordHash) || current.passwordHash || '';
-    const type = text(user.type).toLowerCase() === 'admin' ? 'admin' : 'usuario';
+    const normalizedType = text(user.type).toLowerCase();
+    const type = ['admin', 'director'].includes(normalizedType) ? normalizedType : 'usuario';
     const photo = text(user.photo) || current.photo || '';
     const pushNotifications = user.pushNotifications === true || current.pushNotifications === true;
     return [normalizedEmail, { email: normalizedEmail, name: text(user.name) || current.name || normalizedEmail, type, pushNotifications, ...(photo ? { photo } : {}), ...(passwordHash ? { passwordHash } : {}) }];

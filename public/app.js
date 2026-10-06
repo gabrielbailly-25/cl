@@ -500,7 +500,7 @@ function renderIssues() {
     const row = document.createElement('tr');
     row.className = `clickable-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
-    row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle()}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Quién lo ha añadido">${userChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle('issues')}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Quién lo ha añadido">${userChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
     row.querySelector('[data-mark-issue-read]').addEventListener('click', (event) => toggleIssueRead(event, issue.id));
     const date = row.querySelector('[data-inline-issue-date]');
@@ -728,7 +728,7 @@ function renderPendingTasks() {
     row.className = 'clickable-row';
     row.dataset.tableRowId = task.taskId;
     row.dataset.issueId = task.issueId;
-    row.innerHTML = `<td class="table-first-cell" data-label="Asunto">${task.issueId ? tableRowDragHandle() : ''}${issueChip(task.issueTitle)}</td><td data-label="Tarea">${tableText(task.task)}</td><td data-label="Quién/es la deben realizar">${tableText(task.assigneesText)}</td><td data-label="Fecha límite">${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td data-label="Estado">${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Asunto">${task.issueId ? tableRowDragHandle('pendingTasks') : ''}${issueChip(task.issueTitle)}</td><td data-label="Tarea">${tableText(task.task)}</td><td data-label="Quién/es la deben realizar">${tableText(task.assigneesText)}</td><td data-label="Fecha límite">${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td data-label="Estado">${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openTaskView(task)));
     const date = row.querySelector('[data-inline-task-date]');
     date.addEventListener('click', (event) => event.stopPropagation());
@@ -907,7 +907,7 @@ function renderAgreements() {
     row.className = isRecentRow('agreements', agreement.id) ? 'recent-row' : '';
     row.dataset.tableRowId = agreement.id;
     const attachments = agreement.attachments && agreement.attachments.length ? renderIssueAttachments(agreement.attachments) : '';
-    row.innerHTML = `<td class="table-first-cell" data-label="Fecha del acuerdo">${tableRowDragHandle()}${inlineDateInput(agreement.date, 'agreement', agreement.id)}</td><td data-label="Título">${tableText(agreement.title)}</td><td data-label="Descripción">${tableText(plainText(agreement.description))}</td><td data-label="Adjuntos">${attachments}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Fecha del acuerdo">${tableRowDragHandle('agreements')}${inlineDateInput(agreement.date, 'agreement', agreement.id)}</td><td data-label="Título">${tableText(agreement.title)}</td><td data-label="Descripción">${tableText(plainText(agreement.description))}</td><td data-label="Adjuntos">${attachments}</td>`;
     const date = row.querySelector('[data-inline-agreement-date]');
     date.addEventListener('click', (event) => event.stopPropagation());
     date.addEventListener('change', () => updateAgreementDate(agreement.id, date.value));
@@ -998,7 +998,7 @@ function renderCustomTables() {
     wrap.className = 'table-wrap';
     const columns = table.fields.map((field) => ({ key: field.id, label: field.label, type: field.type }));
     const rows = filteredRows(table.id, table.rows, columns, (row, key) => formatCustomValue(table.fields.find((field) => field.id === key), row.values[key]));
-    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell" data-label="${escapeAttr(table.fields[0].label)}">${tableRowDragHandle()}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id)}</td>${table.fields.slice(1).map((field) => `<td data-label="${escapeAttr(field.label)}">${customInlineTableCell(field, row.values[field.id], row.id)}</td>`).join('')}<td class="table-row-actions"><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
+    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell" data-label="${escapeAttr(table.fields[0].label)}">${tableRowDragHandle(table.id)}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id)}</td>${table.fields.slice(1).map((field) => `<td data-label="${escapeAttr(field.label)}">${customInlineTableCell(field, row.values[field.id], row.id)}</td>`).join('')}<td class="table-row-actions"><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
     wrap.innerHTML = `<table><thead><tr>${columns.map((column) => headerButton(table.id, column)).join('')}<th></th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     wrap.prepend(filterBar(table.id));
     wrap.querySelectorAll('tr[data-view-row] td:not(:last-child)').forEach((cell) => cell.addEventListener('click', (event) => {
@@ -1162,19 +1162,25 @@ function reorderByIds(list, fromId, toId) {
   list.splice(toIndex, 0, item);
 }
 
-function tableRowDragHandle() {
-  return activeDashboard().isAdmin ? '<span class="table-row-drag-handle" data-table-row-drag-handle title="Arrastrar registro">::</span>' : '';
+function tableRowDragHandle(tableId) {
+  return canReorderTable(tableId) ? '<span class="table-row-drag-handle" data-table-row-drag-handle title="Arrastrar registro">::</span>' : '';
+}
+
+function canReorderTable(tableId) {
+  if (activeDashboard().isAdmin) return true;
+  const email = String(state.me && state.me.email || '').toLowerCase();
+  return ['issues', 'pendingTasks'].includes(tableId) && dashboardUsers().some((user) => user.email === email && user.type === 'director');
 }
 
 function enableTableRowDragging(body, rows, tableId) {
-  if (!activeDashboard().isAdmin || !body) return;
+  if (!canReorderTable(tableId) || !body) return;
   body.querySelectorAll('[data-table-row-drag-handle]').forEach((handle) => {
     handle.addEventListener('pointerdown', (event) => startTableRowDrag(event, body, rows, tableId, handle.closest('[data-table-row-id]')));
   });
 }
 
 function enablePendingTaskDragging(body) {
-  if (!activeDashboard().isAdmin || !body) return;
+  if (!canReorderTable('pendingTasks') || !body) return;
   body.querySelectorAll('[data-table-row-drag-handle]').forEach((handle) => handle.addEventListener('pointerdown', (event) => {
     const row = handle.closest('[data-table-row-id]');
     const issue = row && state.data.issues.find((item) => item.id === row.dataset.issueId);
@@ -1675,7 +1681,7 @@ function addUserRow(user = {}) {
   const row = html(`<div class="user-row">
     <label>Correo<input data-user-email type="email" placeholder="usuario@dominio.com" value="${escapeAttr(user.email || '')}"></label>
     <label>Nombre<input data-user-name placeholder="Nombre visible" value="${escapeAttr(user.name || '')}"></label>
-    <label>Tipo<select data-user-type><option value="usuario" ${(user.type || 'usuario') !== 'admin' ? 'selected' : ''}>Usuario</option><option value="admin" ${user.type === 'admin' ? 'selected' : ''}>Administrador</option></select></label>
+    <label>Tipo<select data-user-type><option value="usuario" ${(user.type || 'usuario') === 'usuario' ? 'selected' : ''}>Usuario</option><option value="director" ${user.type === 'director' ? 'selected' : ''}>Director</option><option value="admin" ${user.type === 'admin' ? 'selected' : ''}>Administrador</option></select></label>
     <label>Contraseña<input data-user-password type="password" placeholder="${user.passwordConfigured ? 'Configurada. Dejar en blanco para mantenerla' : 'Solo para administradores'}"></label>
   </div>`);
   row.append(button('Quitar', () => row.remove(), 'secondary small-button'));
@@ -2190,7 +2196,7 @@ function dashboardUsers() {
   const users = new Map();
   const knownUsers = state.data.users || {};
   const admins = new Set(state.data.admins || []);
-  Object.values(knownUsers).forEach((user) => users.set(user.email, { email: user.email, name: user.name || user.email, photo: user.photo || '', type: user.type === 'admin' || admins.has(user.email) ? 'admin' : 'usuario', passwordConfigured: Boolean(user.passwordConfigured) }));
+  Object.values(knownUsers).forEach((user) => users.set(user.email, { email: user.email, name: user.name || user.email, photo: user.photo || '', type: user.type === 'admin' || admins.has(user.email) ? 'admin' : user.type === 'director' ? 'director' : 'usuario', passwordConfigured: Boolean(user.passwordConfigured) }));
   [state.me.email, ...(state.data.admins || []), ...(state.data.allowedUsers || [])].forEach((email) => {
     if (email && !users.has(email)) users.set(email, { email, name: email, photo: email === state.me.email ? state.me.photo || '' : '', type: admins.has(email) ? 'admin' : 'usuario' });
   });
