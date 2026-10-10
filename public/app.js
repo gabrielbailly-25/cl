@@ -500,7 +500,7 @@ function renderIssues() {
     const row = document.createElement('tr');
     row.className = `clickable-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
-    row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle('issues')}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Quién lo ha añadido">${userChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle('issues')}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Quién lo ha añadido">${firstNameChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
     row.querySelector('[data-mark-issue-read]').addEventListener('click', (event) => toggleIssueRead(event, issue.id));
     const date = row.querySelector('[data-inline-issue-date]');
@@ -515,7 +515,10 @@ function renderIssues() {
       event.stopPropagation();
       openIssueModal(issue);
     }));
-    row.append(actionCell(actions));
+    const actionCellElement = actionCell(actions);
+    actionCellElement.classList.add('table-row-actions');
+    actionCellElement.addEventListener('click', (event) => event.stopPropagation());
+    row.append(actionCellElement);
     body.append(row);
   });
   enableTableRowDragging(body, state.data.issues, 'issues');
@@ -581,7 +584,7 @@ function openIssueView(issue) {
   $('#issueViewContent').innerHTML = `
     <dl class="issue-meta">
       <div><dt>Fecha</dt><dd>${escapeHtml(formatDate(issue.date) || 'Sin fecha')}</dd></div>
-      <div><dt>Añadido por</dt><dd>${userChip(issue.addedBy)}</dd></div>
+      <div><dt>Añadido por</dt><dd>${firstNameChip(issue.addedBy)}</dd></div>
       <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
       <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => userChip(reader.email)).join('') : '<span class="muted-text">Nadie</span>'}</dd></div>
     </dl>
@@ -746,7 +749,10 @@ function renderPendingTasks() {
       event.stopPropagation();
       deleteTask(task);
     }, 'danger'));
-    row.append(actionCell(actions));
+    const actionCellElement = actionCell(actions);
+    actionCellElement.classList.add('table-row-actions');
+    actionCellElement.addEventListener('click', (event) => event.stopPropagation());
+    row.append(actionCellElement);
     body.append(row);
   });
   enablePendingTaskDragging(body);
@@ -2215,6 +2221,11 @@ function formatAssignees(assignees = []) {
 function userChip(value) {
   const user = value && typeof value === 'object' ? { ...value, name: value.name || value.email || 'Sin indicar' } : userForValue(value);
   return `<span class="user-chip">${userAvatar(user)}<span>${escapeHtml(user.name)}</span></span>`;
+}
+
+function firstNameChip(value) {
+  const user = userForValue(value);
+  return userChip({ ...user, name: String(user.name || '').trim().split(/\s+/)[0] || user.name });
 }
 
 function normalizeReaders(readBy) {
