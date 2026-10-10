@@ -582,7 +582,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
 }
 .modal-card > .section-title .icon-button { flex: 0 0 auto; }
 .modal-header-actions { display: flex; gap: .25rem; margin-left: auto; }
-.modal-header-actions > button { font-size: .92rem; min-height: 2.15rem; padding: .42rem .75rem; }
+.modal-header-actions button { box-sizing: border-box; font-size: .92rem; height: 2.15rem; min-height: 2.15rem; padding: .42rem .75rem; width: auto; }
 .modal-close-actions { display: grid; gap: .25rem; }
 .modal-close-button {
   background: white;

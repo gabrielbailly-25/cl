@@ -2088,6 +2088,14 @@ function taskAssigneesField(selected = []) {
   return box;
 }
 
+function taskCompletionField(assignees = [], completedBy = []) {
+  const box = document.createElement('div');
+  box.className = 'stack task-completion-field';
+  const users = assignees.map((email) => userForValue(email));
+  box.innerHTML = `<label>Responsables que la han realizado</label><div class="task-completion-list">${users.length ? users.map((user) => `<label class="task-completion-user"><input type="checkbox" value="${escapeAttr(user.email)}" data-task-completed-by ${completedBy.includes(user.email) ? 'checked' : ''}><span>${userAvatar(user)}${escapeHtml(user.name)}</span></label>`).join('') : '<span class="muted-text">Selecciona primero los responsables.</span>'}</div>`;
+  return box;
+}
+
 function compactStatusField(selected = 'nuevo') {
   const box = document.createElement('div');
   box.className = 'stack';
