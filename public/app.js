@@ -485,7 +485,7 @@ function renderIssues() {
   ];
   const rows = filteredRows('issues', state.data.issues, columns, (issue, key) => {
     if (key === 'taskCount') return (issue.tasks || []).length;
-    if (key === 'readBy') return (issue.readBy || []).map((reader) => reader.name || reader.email).join(', ');
+    if (key === 'readBy') return (issue.readBy || []).map((reader) => userFirstName(reader.email || reader.name)).join(', ');
     return issue[key];
   });
   const body = $('#issuesBody');
@@ -529,9 +529,9 @@ function exportIssuesCsv() {
   downloadCsv('asuntos.csv', ['Fecha', 'Título', 'Quién lo ha añadido', 'Nº tareas', 'Leído', 'Estado'], rows.map((issue) => [
     formatDate(issue.date),
     issue.title,
-    userForValue(issue.addedBy).name,
+    userFirstName(issue.addedBy),
     (issue.tasks || []).length,
-    (issue.readBy || []).map((reader) => reader.name || reader.email).join(', '),
+    (issue.readBy || []).map((reader) => userFirstName(reader.email || reader.name)).join(', '),
     issue.status,
   ]));
 }
@@ -539,7 +539,7 @@ function exportIssuesCsv() {
 function issueReadCell(issue) {
   const readBy = issue.readBy || [];
   const hasRead = readBy.some((reader) => reader.email === String(state.me.email).toLowerCase());
-  const readers = readBy.length ? readBy.map((reader) => userChip(reader.email)).join('') : '<span class="muted-text">Nadie</span>';
+  const readers = readBy.length ? readBy.map((reader) => firstNameChip(reader.email || reader.name)).join('') : '<span class="muted-text">Nadie</span>';
   const label = hasRead ? 'Marcar no leído' : 'Marcar leído';
   return `<div class="read-by"><button type="button" class="read-toggle" data-mark-issue-read title="${label}" aria-label="${label}">${hasRead ? '&#8634;' : '&#10003;'}</button><div class="read-users">${readers}</div></div>`;
 }
@@ -586,7 +586,7 @@ function openIssueView(issue) {
       <div><dt>Fecha</dt><dd>${escapeHtml(formatDate(issue.date) || 'Sin fecha')}</dd></div>
       <div><dt>Añadido por</dt><dd>${firstNameChip(issue.addedBy)}</dd></div>
       <div><dt>Estado</dt><dd>${statusChip(issue.status)}</dd></div>
-      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => userChip(reader.email)).join('') : '<span class="muted-text">Nadie</span>'}</dd></div>
+      <div><dt>Leído por</dt><dd>${issue.readBy && issue.readBy.length ? issue.readBy.map((reader) => firstNameChip(reader.email || reader.name)).join('') : '<span class="muted-text">Nadie</span>'}</dd></div>
     </dl>
     <section class="issue-section">
       <h3>Descripción</h3>
@@ -2234,6 +2234,11 @@ function userChip(value) {
 function firstNameChip(value) {
   const user = userForValue(value);
   return userChip({ ...user, name: String(user.name || '').trim().split(/\s+/)[0] || user.name });
+}
+
+function userFirstName(value) {
+  const user = userForValue(value);
+  return String(user.name || '').trim().split(/\s+/)[0] || user.name || value || '';
 }
 
 function normalizeReaders(readBy) {
