@@ -787,7 +787,7 @@ function exportMyTasksCsv() {
 }
 
 function pendingTasks() {
-  const relatedTasks = (state.data.issues || []).flatMap((issue) => (issue.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
+  const relatedTasks = (state.data.issues || []).flatMap((issue) => (issue.tasks || []).map((task) => ({
     ...task,
     task: task.task || 'Tarea sin título',
     assigneesText: formatAssignees(task.assignees),
@@ -798,7 +798,7 @@ function pendingTasks() {
     issueId: issue.id,
     taskId: task.id,
   })));
-  const standaloneTasks = (state.data.tasks || []).filter((task) => task.status !== 'realizado').map((task) => ({
+  const standaloneTasks = (state.data.tasks || []).map((task) => ({
     ...task,
     task: task.task || 'Tarea sin título',
     assigneesText: formatAssignees(task.assignees),
