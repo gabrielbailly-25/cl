@@ -916,6 +916,14 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .login-card .google-button { width: min(100%, 14rem); }
   .table-filter-bar .table-filter { flex: 1 1 auto; max-width: none; width: auto; }
   .table-filter-bar .quick-filters { flex-basis: 100%; margin-left: 0; }
+  .table-filter-bar[data-filter-for="pendingTasks"] .quick-filters {
+    flex-basis: auto;
+    flex-wrap: nowrap;
+    max-width: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+    padding-bottom: .15rem;
+  }
   .table-wrap { overflow-x: visible; }
   .table-wrap table, .table-wrap tbody { display: block; }
   .table-wrap thead { display: none; }
@@ -928,5 +936,13 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .table-wrap tbody tr td:last-child { justify-content: flex-end; padding-top: .65rem; }
   .table-wrap tbody tr td:last-child::before { display: none; }
   .table-row-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+  .issue-card-row,
+  .pending-task-card-row { column-gap: .35rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .issue-card-row td:nth-child(2),
+  .pending-task-card-row td:nth-child(2) { border-bottom: 1px solid var(--line); grid-column: 1 / -1; padding-bottom: .5rem; text-align: left; }
+  .issue-card-row td:nth-child(2)::before,
+  .pending-task-card-row td:nth-child(2)::before { display: none; }
+  .issue-card-row td:nth-child(2) .table-cell-text,
+  .pending-task-card-row td:nth-child(2) .table-cell-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .table-wrap .empty { display: block; text-align: center; }
 }

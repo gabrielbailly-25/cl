@@ -498,7 +498,7 @@ function renderIssues() {
   }
   rows.forEach((issue) => {
     const row = document.createElement('tr');
-    row.className = `clickable-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
+    row.className = `clickable-row issue-card-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
     row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle('issues')}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Quién lo ha añadido">${firstNameChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
@@ -728,7 +728,7 @@ function renderPendingTasks() {
   }
   rows.forEach((task) => {
     const row = document.createElement('tr');
-    row.className = 'clickable-row';
+    row.className = 'clickable-row pending-task-card-row';
     row.dataset.tableRowId = task.taskId;
     row.dataset.issueId = task.issueId;
     row.innerHTML = `<td class="table-first-cell" data-label="Asunto">${task.issueId ? tableRowDragHandle('pendingTasks') : ''}${issueChip(task.issueTitle)}</td><td data-label="Tarea">${tableText(task.task)}</td><td data-label="Quién/es la deben realizar">${tableText(task.assigneesText)}</td><td data-label="Fecha límite">${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td data-label="Estado">${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
