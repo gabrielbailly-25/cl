@@ -923,7 +923,10 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
     margin-left: 0;
     overflow-x: auto;
     padding-bottom: .15rem;
+    width: 100%;
   }
+  .table-filter-bar[data-filter-for="pendingTasks"] .quick-filters .status-filter,
+  .table-filter-bar[data-filter-for="pendingTasks"] .quick-filters .mine-filter { flex: 0 0 auto; }
   .table-wrap { overflow-x: visible; }
   .table-wrap table, .table-wrap tbody { display: block; }
   .table-wrap thead { display: none; }
@@ -944,5 +947,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .pending-task-card-row td:nth-child(2)::before { display: none; }
   .issue-card-row td:nth-child(2) .table-cell-text,
   .pending-task-card-row td:nth-child(2) .table-cell-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issue-card-row td:nth-child(4),
+  .issue-card-row td:nth-child(6) { display: flex; visibility: visible; }
   .table-wrap .empty { display: block; text-align: center; }
 }

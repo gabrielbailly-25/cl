@@ -478,7 +478,7 @@ function renderIssues() {
   const columns = [
     { key: 'date', label: 'Fecha' },
     { key: 'title', label: 'Título' },
-    { key: 'addedBy', label: 'Quién lo ha añadido' },
+    { key: 'addedBy', label: 'Añadido por' },
     { key: 'taskCount', label: 'Nº tareas' },
     { key: 'readBy', label: 'Leído' },
     { key: 'status', label: 'Estado' },
@@ -500,7 +500,7 @@ function renderIssues() {
     const row = document.createElement('tr');
     row.className = `clickable-row issue-card-row${isRecentRow('issues', issue.id) ? ' recent-row' : ''}`;
     row.dataset.tableRowId = issue.id;
-    row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle('issues')}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Quién lo ha añadido">${firstNameChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Fecha">${tableRowDragHandle('issues')}${inlineDateInput(issue.date, 'issue', issue.id)}</td><td data-label="Título">${tableText(issue.title)}</td><td data-label="Añadido por">${firstNameChip(issue.addedBy)}</td><td data-label="Nº tareas">${escapeHtml(String((issue.tasks || []).length))}</td><td data-label="Leído">${issueReadCell(issue)}</td><td data-label="Estado">${inlineStatusSelect(issue.status, 'issue', issue.id)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openIssueView(issue)));
     row.querySelector('[data-mark-issue-read]').addEventListener('click', (event) => toggleIssueRead(event, issue.id));
     const date = row.querySelector('[data-inline-issue-date]');
@@ -526,7 +526,7 @@ function renderIssues() {
 
 function exportIssuesCsv() {
   const rows = state.data.issues || [];
-  downloadCsv('asuntos.csv', ['Fecha', 'Título', 'Quién lo ha añadido', 'Nº tareas', 'Leído', 'Estado'], rows.map((issue) => [
+  downloadCsv('asuntos.csv', ['Fecha', 'Título', 'Añadido por', 'Nº tareas', 'Leído', 'Estado'], rows.map((issue) => [
     formatDate(issue.date),
     issue.title,
     userFirstName(issue.addedBy),
@@ -1928,7 +1928,7 @@ function inputField(name, label, value = '', type = 'text') {
 function issueAuthorField(selected = '') {
   const selectedUser = userForValue(selected);
   const selectedEmail = selectedUser.email || String(selected).toLowerCase();
-  const box = html(`<div class="stack"><label>Quién lo ha añadido</label><input type="hidden" name="addedBy" value="${escapeAttr(selectedEmail)}"><div class="chip-list">${dashboardUsers().map((user) => `<button type="button" class="chip user-select-chip ${user.email === selectedEmail ? 'selected' : ''}" data-issue-author="${escapeAttr(user.email)}">${userAvatar(user)}<span>${escapeHtml(user.name)}</span></button>`).join('')}</div></div>`);
+  const box = html(`<div class="stack"><label>Añadido por</label><input type="hidden" name="addedBy" value="${escapeAttr(selectedEmail)}"><div class="chip-list">${dashboardUsers().map((user) => `<button type="button" class="chip user-select-chip ${user.email === selectedEmail ? 'selected' : ''}" data-issue-author="${escapeAttr(user.email)}">${userAvatar(user)}<span>${escapeHtml(user.name)}</span></button>`).join('')}</div></div>`);
   const input = box.querySelector('[name="addedBy"]');
   box.querySelectorAll('[data-issue-author]').forEach((chip) => chip.addEventListener('click', () => {
     input.value = chip.dataset.issueAuthor;
