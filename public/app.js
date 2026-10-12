@@ -2241,6 +2241,10 @@ function userFirstName(value) {
   return String(user.name || '').trim().split(/\s+/)[0] || user.name || value || '';
 }
 
+function taskAssigneeChips(assignees = []) {
+  return assignees.length ? assignees.map((assignee) => firstNameChip(assignee)).join('') : '<span class="muted-text">Sin asignar</span>';
+}
+
 function normalizeReaders(readBy) {
   return (Array.isArray(readBy) ? readBy : []).map((reader) => {
     const value = typeof reader === 'object' && reader ? reader : { email: reader };
