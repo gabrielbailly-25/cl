@@ -958,5 +958,14 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .pending-task-card-row td:nth-child(5) { gap: .25rem; }
   .issue-card-row td:nth-child(6)::before,
   .pending-task-card-row td:nth-child(5)::before { flex-basis: auto; }
+  .pending-task-card-row td:first-child { grid-column: 1; }
+  .pending-task-card-row td:nth-child(2) { grid-column: 2; }
+  .pending-task-card-row td:nth-child(3) { grid-column: 1; }
+  .pending-task-card-row td:nth-child(4) { grid-column: 2; }
+  .pending-task-card-row td:nth-child(5),
+  .pending-task-card-row td:last-child { grid-column: 1 / -1; }
+  .pending-task-card-row td:last-child { justify-content: center; }
+  .pending-task-card-row td:last-child .link-actions { display: flex; gap: .4rem; justify-content: center; width: 100%; }
+  .pending-task-card-row td:last-child .link-actions button { flex: 0 1 8rem; min-width: 0; padding-left: .55rem; padding-right: .55rem; }
   .table-wrap .empty { display: block; text-align: center; }
 }
