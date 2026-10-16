@@ -427,7 +427,7 @@ function renderCollapsedSections() {
     section.classList.toggle('collapsed-panel', isCollapsed);
     const button = section.querySelector(`[data-collapse-section="${section.dataset.sectionId}"]`);
     if (button) {
-      button.textContent = '';
+      button.innerHTML = visibilityIconMarkup();
       button.classList.toggle('is-collapsed', isCollapsed);
       button.classList.toggle('is-expanded', !isCollapsed);
       button.setAttribute('aria-label', `${isCollapsed ? 'Mostrar' : 'Ocultar'} sección`);
@@ -1139,7 +1139,11 @@ function textBlockSectionId(id) {
 }
 
 function collapseButton(sectionId) {
-  return `<button type="button" class="collapse-button is-expanded" data-collapse-section="${escapeAttr(sectionId)}" aria-label="Ocultar sección"></button>`;
+  return `<button type="button" class="collapse-button is-expanded" data-collapse-section="${escapeAttr(sectionId)}" aria-label="Ocultar sección">${visibilityIconMarkup()}</button>`;
+}
+
+function visibilityIconMarkup() {
+  return `<svg class="visibility-icon visibility-open" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.2 12s3.4-6.1 9.8-6.1S21.8 12 21.8 12s-3.4 6.1-9.8 6.1S2.2 12 2.2 12Z"></path><circle cx="12" cy="12" r="3.1"></circle><path d="m5.2 6.2-1.4-2.1M8.5 4.5 7.8 2M12 4V1.7M15.5 4.5l.7-2.5M18.8 6.2l1.4-2.1"></path></svg><svg class="visibility-icon visibility-closed" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 13.2c2.5 3.1 5.7 4.8 9.5 4.8s7-1.7 9.5-4.8"></path><path d="m5.5 16.2-1.4 2.2M9 17.8l-.8 2.5M12 18v3M15 17.8l.8 2.5M18.5 16.2l1.4 2.2"></path></svg>`;
 }
 
 function enableLinkDragging(list) {

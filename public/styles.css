@@ -299,6 +299,23 @@ button:hover, .google-button:hover { filter: brightness(1.08); }
   transform: translate(-50%, -50%) rotate(-45deg);
   width: 1.25rem;
 }
+.collapse-button::before,
+.collapse-button::after,
+.collapse-button.is-collapsed::before,
+.collapse-button.is-collapsed::after { display: none; }
+.visibility-icon {
+  fill: none;
+  height: 1.25rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+  width: 1.25rem;
+}
+.visibility-icon circle { fill: currentColor; stroke: none; }
+.visibility-closed { display: none; }
+.collapse-button.is-collapsed .visibility-open { display: none; }
+.collapse-button.is-collapsed .visibility-closed { display: block; }
 .collapsed-panel > :not(.section-title) { display: none; }
 .links-grid, .links-list {
   display: grid;
