@@ -18,7 +18,7 @@
     <link rel="manifest" href="/manifest.webmanifest?v=20260822">
     <link rel="icon" type="image/png" href="/images/app-icon.png?v=20260822">
     <link rel="apple-touch-icon" href="/images/app-icon.png?v=20260822">
-    <link rel="stylesheet" href="/styles.css?v=20260821-6300">
+    <link rel="stylesheet" href="/styles.css?v=20260821-6400">
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   </head>
   <body>
@@ -234,21 +234,22 @@
 
     <dialog id="modal">
       <form id="modalForm" method="dialog" class="modal-card">
-        <div class="section-title">
+        <header class="modal-header">
           <h2 id="modalTitle"></h2>
           <div class="modal-header-actions">
-            <button type="submit" class="save-modal-button">Guardar</button>
-            <div class="modal-close-actions">
-              <button type="button" id="closeModal" class="modal-close-button">Cerrar</button>
-              <button type="button" id="addAgreementFromIssue" class="secondary hidden">Añadir acuerdo</button>
-            </div>
+            <button type="button" id="closeModal" class="modal-close-button" aria-label="Cerrar">×</button>
           </div>
-        </div>
-        <div id="modalFields" class="stack"></div>
-        <p id="modalError" class="error"></p>
-        <div class="actions modal-actions">
+        </header>
+        <div id="modalFields" class="modal-content stack"></div>
+        <p id="modalError" class="error modal-error"></p>
+        <footer class="modal-footer">
           <button type="button" id="deleteModal" class="danger">Eliminar</button>
-        </div>
+          <div class="modal-footer-actions">
+            <button type="button" id="addAgreementFromIssue" class="secondary hidden">Añadir acuerdo</button>
+            <button type="button" id="cancelModal" class="modal-close-button">Cancelar</button>
+            <button type="submit" class="save-modal-button">Guardar</button>
+          </div>
+        </footer>
       </form>
     </dialog>
 
@@ -291,6 +292,6 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script src="/app.js?v=20260821-6300"></script>
+    <script src="/app.js?v=20260821-6400"></script>
   </body>
 </html>

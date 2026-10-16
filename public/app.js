@@ -71,6 +71,7 @@ function bindEvents() {
   $('#saveAppearanceButton').addEventListener('click', saveAppearance);
   $('#dashboardSelector').addEventListener('change', switchDashboard);
   $('#closeModal').addEventListener('click', closeEditModal);
+  $('#cancelModal').addEventListener('click', closeEditModal);
   $('#addAgreementFromIssue').addEventListener('click', addAgreementFromIssue);
   $('#closeIssueView').addEventListener('click', () => issueViewModal.close());
   issueViewModal.addEventListener('close', () => {
@@ -1379,40 +1380,53 @@ function openLinkModal(link = null) {
 }
 
 function openIssueModal(issue = null) {
+  const fields = [
+    inputField('date', 'Fecha', issue ? issue.date : today(), 'date'),
+    inputField('title', 'Título', issue && issue.title),
+    issueAuthorField(issue ? issue.addedBy : state.me.email),
+    statusChipField('status', 'Estado', issue && issue.status),
+    richTextField('description', 'Descripción', issue && issue.description),
+    attachmentsField(issue && issue.attachments),
+    tasksField(issue && issue.tasks),
+  ];
+  fields[0].classList.add('modal-issue-date');
+  fields[1].classList.add('modal-issue-title');
+  fields[2].classList.add('modal-issue-author');
+  fields[3].classList.add('modal-issue-status');
+  fields[4].classList.add('modal-issue-description');
+  fields[5].classList.add('modal-issue-attachments');
+  fields[6].classList.add('modal-issue-tasks');
   openModal({
     type: 'issue',
     id: issue && issue.id,
     comments: issue ? issue.comments || [] : [],
     readBy: issue ? issue.readBy || [] : [],
     title: issue ? 'Editar asunto' : 'Añadir asunto',
-    fields: [
-      inputField('date', 'Fecha', issue ? issue.date : today(), 'date'),
-      inputField('title', 'Título', issue && issue.title),
-      issueAuthorField(issue ? issue.addedBy : state.me.email),
-      statusChipField('status', 'Estado', issue && issue.status),
-      richTextField('description', 'Descripción', issue && issue.description),
-      attachmentsField(issue && issue.attachments),
-      tasksField(issue && issue.tasks),
-    ],
+    fields,
     deletable: Boolean(issue),
   });
 }
 
 function openTaskModal(task) {
+  const issueField = task && task.issueId ? taskIssueField(task.issueTitle, task.issueId) : null;
+  const titleField = inputField('task', 'Tarea', task && task.task);
+  const descriptionField = richTextField('description', 'Descripción', task && task.description);
+  const assigneesField = taskAssigneesField(task && task.assignees || []);
+  const completionField = taskCompletionField(task && task.assignees || [], task && task.completedBy || []);
+  const dueDateField = inputField('dueDate', 'Fecha límite', task && task.dueDate, 'date');
+  const statusField = compactStatusField(task && task.status);
+  titleField.classList.add('modal-task-title');
+  descriptionField.classList.add('modal-task-description');
+  assigneesField.classList.add('modal-task-assignees');
+  completionField.classList.add('modal-task-completion');
+  dueDateField.classList.add('modal-task-due-date');
+  statusField.classList.add('modal-task-status');
   openModal({
     type: 'task',
     issueId: task && task.issueId,
     taskId: task && task.taskId,
     title: task ? 'Editar tarea' : 'Añadir tarea pendiente',
-    fields: [
-      ...(task && task.issueId ? [taskIssueField(task.issueTitle, task.issueId)] : []),
-      inputField('task', 'Tarea', task && task.task),
-      richTextField('description', 'Descripción', task && task.description),
-      taskAssigneesField(task && task.assignees || []),
-      taskCompletionField(task && task.assignees || [], task && task.completedBy || []),
-      inputField('dueDate', 'Fecha límite', task && task.dueDate, 'date'),
-      compactStatusField(task && task.status),
-    ],
+    fields: [...(issueField ? [issueField] : []), titleField, descriptionField, assigneesField, completionField, dueDateField, statusField],
     deletable: Boolean(task),
   });
 }
@@ -1452,6 +1466,8 @@ function openCustomRowView(table, row) {
 function openModal(config) {
   state.modal = config;
   modal.classList.toggle('wide-modal', ['issue', 'customRowView'].includes(config.type));
+  modal.className = [...modal.classList].filter((name) => !name.startsWith('modal-type-')).join(' ');
+  modal.classList.add(`modal-type-${config.type}`);
   modal.classList.remove('fallback-modal');
   $('#modalTitle').textContent = config.title;
   $('#modalError').textContent = '';
