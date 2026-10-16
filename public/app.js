@@ -427,7 +427,9 @@ function renderCollapsedSections() {
     section.classList.toggle('collapsed-panel', isCollapsed);
     const button = section.querySelector(`[data-collapse-section="${section.dataset.sectionId}"]`);
     if (button) {
-      button.textContent = isCollapsed ? '▶️' : '🔽';
+      button.textContent = '';
+      button.classList.toggle('is-collapsed', isCollapsed);
+      button.classList.toggle('is-expanded', !isCollapsed);
       button.setAttribute('aria-label', `${isCollapsed ? 'Mostrar' : 'Ocultar'} sección`);
     }
   });
@@ -469,7 +471,7 @@ function renderLinks() {
     row.dataset.linkId = link.id;
     if (activeDashboard().isAdmin) row.draggable = true;
     row.innerHTML = `<a href="${escapeAttr(link.url)}" target="_blank" rel="noopener" draggable="false">${escapeHtml(link.title || link.url)}</a>`;
-    if (activeDashboard().isAdmin) row.append(button('Editar', () => openLinkModal(link), 'secondary small-button'));
+    if (activeDashboard().isAdmin) row.append(button('Editar', () => openLinkModal(link), 'secondary small-button row-edit-action'));
     list.append(row);
   });
   if (activeDashboard().isAdmin) enableLinkDragging(list);
@@ -515,7 +517,7 @@ function renderIssues() {
     actions.append(button('Editar', (event) => {
       event.stopPropagation();
       openIssueModal(issue);
-    }));
+    }, 'row-edit-action'));
     const actionCellElement = actionCell(actions);
     actionCellElement.classList.add('table-row-actions');
     actionCellElement.addEventListener('click', (event) => event.stopPropagation());
@@ -745,11 +747,11 @@ function renderPendingTasks() {
     actions.append(button('Editar', (event) => {
       event.stopPropagation();
       openTaskModal(task);
-    }));
+    }, 'row-edit-action'));
     actions.append(button('Eliminar', (event) => {
       event.stopPropagation();
       deleteTask(task);
-    }, 'danger'));
+    }, 'danger row-delete-action'));
     const actionCellElement = actionCell(actions);
     actionCellElement.classList.add('table-row-actions');
     actionCellElement.addEventListener('click', (event) => event.stopPropagation());
@@ -920,8 +922,10 @@ function renderAgreements() {
     date.addEventListener('change', () => updateAgreementDate(agreement.id, date.value));
     const actions = document.createElement('div');
     actions.className = 'link-actions';
-    actions.append(button('Editar', () => openAgreementModal(agreement)));
-    row.append(actionCell(actions));
+    actions.append(button('Editar', () => openAgreementModal(agreement), 'row-edit-action'));
+    const actionCellElement = actionCell(actions);
+    actionCellElement.classList.add('table-row-actions');
+    row.append(actionCellElement);
     body.append(row);
   });
   enableTableRowDragging(body, state.data.agreements, 'agreements');
@@ -957,7 +961,7 @@ function renderTextBlocks() {
       remove(state.data.textBlocks, block.id);
       state.data.layoutOrder = state.data.layoutOrder.filter((id) => id !== textBlockSectionId(block.id));
       await persist();
-    }, 'danger'));
+     }, 'danger row-delete-action'));
     panel.append(header);
     if (activeDashboard().isAdmin) {
       const editor = richTextField(`textBlock:${block.id}`, '', block.content, true);
@@ -1005,7 +1009,7 @@ function renderCustomTables() {
     wrap.className = 'table-wrap';
     const columns = table.fields.map((field) => ({ key: field.id, label: field.label, type: field.type }));
     const rows = filteredRows(table.id, table.rows, columns, (row, key) => formatCustomValue(table.fields.find((field) => field.id === key), row.values[key]));
-    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell" data-label="${escapeAttr(table.fields[0].label)}">${tableRowDragHandle(table.id)}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id)}</td>${table.fields.slice(1).map((field) => `<td data-label="${escapeAttr(field.label)}">${customInlineTableCell(field, row.values[field.id], row.id)}</td>`).join('')}<td class="table-row-actions"><button data-row="${escapeAttr(row.id)}">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
+    const htmlRows = rows.length ? rows.map((row) => `<tr class="clickable-row${isRecentRow(table.id, row.id) ? ' recent-row' : ''}" data-view-row="${escapeAttr(row.id)}" data-table-row-id="${escapeAttr(row.id)}"><td class="table-first-cell" data-label="${escapeAttr(table.fields[0].label)}">${tableRowDragHandle(table.id)}${customInlineTableCell(table.fields[0], row.values[table.fields[0].id], row.id)}</td>${table.fields.slice(1).map((field) => `<td data-label="${escapeAttr(field.label)}">${customInlineTableCell(field, row.values[field.id], row.id)}</td>`).join('')}<td class="table-row-actions"><button class="row-edit-action" data-row="${escapeAttr(row.id)}" aria-label="Editar" title="Editar">Editar</button></td></tr>`).join('') : `<tr><td colspan="${table.fields.length + 1}" class="empty">Sin filas que coincidan.</td></tr>`;
     wrap.innerHTML = `<table><thead><tr>${columns.map((column) => headerButton(table.id, column)).join('')}<th></th></tr></thead><tbody>${htmlRows}</tbody></table>`;
     wrap.prepend(filterBar(table.id));
     wrap.querySelectorAll('tr[data-view-row] td:not(:last-child)').forEach((cell) => cell.addEventListener('click', (event) => {
@@ -1135,7 +1139,7 @@ function textBlockSectionId(id) {
 }
 
 function collapseButton(sectionId) {
-  return `<button type="button" class="collapse-button" data-collapse-section="${escapeAttr(sectionId)}" aria-label="Ocultar sección">🔽</button>`;
+  return `<button type="button" class="collapse-button is-expanded" data-collapse-section="${escapeAttr(sectionId)}" aria-label="Ocultar sección"></button>`;
 }
 
 function enableLinkDragging(list) {

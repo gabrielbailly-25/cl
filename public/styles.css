@@ -253,13 +253,51 @@ button:hover, .google-button:hover { filter: brightness(1.08); }
 .section-heading { align-items: center; display: flex; gap: .55rem; min-width: 0; }
 .section-heading h2 { min-width: 0; }
 .collapse-button {
+  align-items: center;
   background: #ffe5d5;
   color: var(--brand);
+  display: inline-flex;
   font-size: 1rem;
   font-weight: 800;
   min-height: 1.8rem;
   padding: 0;
+  position: relative;
   width: 2.1rem;
+}
+.collapse-button::before {
+  border: 1.7px solid currentColor;
+  border-radius: 75% 15%;
+  content: "";
+  height: .6rem;
+  transform: rotate(45deg);
+  width: 1rem;
+}
+.collapse-button::after {
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
+  height: .25rem;
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: .25rem;
+}
+.collapse-button.is-collapsed::before {
+  border-radius: 50%;
+  height: .55rem;
+  transform: none;
+  width: 1rem;
+}
+.collapse-button.is-collapsed::after {
+  background: transparent;
+  border-top: 2px solid currentColor;
+  border-radius: 0;
+  height: .9rem;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-45deg);
+  width: 1.25rem;
 }
 .collapsed-panel > :not(.section-title) { display: none; }
 .links-grid, .links-list {
@@ -872,6 +910,37 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   padding: 1rem;
   text-align: center;
 }
+.table-row-actions .link-actions { flex-wrap: nowrap; }
+.table-row-actions .row-edit-action,
+.table-row-actions .row-delete-action {
+  align-items: center;
+  font-size: 0;
+  height: 2.15rem;
+  justify-content: center;
+  min-height: 2.15rem;
+  padding: 0;
+  width: 2.15rem;
+}
+.table-row-actions .row-edit-action::before { content: "✎"; font-size: 1.05rem; }
+.table-row-actions .row-delete-action::before { content: "🗑"; font-size: .95rem; }
+
+@media (min-width: 721px) {
+  #pendingTasksPanel .table-wrap table { min-width: 0; table-layout: fixed; width: 100%; }
+  #pendingTasksPanel .table-wrap th,
+  #pendingTasksPanel .table-wrap td { max-width: none; }
+  #pendingTasksPanel .table-wrap th:nth-child(1),
+  #pendingTasksPanel .table-wrap td:nth-child(1) { width: 20%; }
+  #pendingTasksPanel .table-wrap th:nth-child(2),
+  #pendingTasksPanel .table-wrap td:nth-child(2) { width: 25%; }
+  #pendingTasksPanel .table-wrap th:nth-child(3),
+  #pendingTasksPanel .table-wrap td:nth-child(3) { width: 22%; }
+  #pendingTasksPanel .table-wrap th:nth-child(4),
+  #pendingTasksPanel .table-wrap td:nth-child(4) { width: 15%; }
+  #pendingTasksPanel .table-wrap th:nth-child(5),
+  #pendingTasksPanel .table-wrap td:nth-child(5) { width: 12%; }
+  #pendingTasksPanel .table-wrap th:last-child,
+  #pendingTasksPanel .table-wrap td:last-child { width: 6%; }
+}
 
 /* Editing modals share a fixed chrome and a scrollable form surface. */
 #modal {
@@ -1228,4 +1297,41 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .modal-type-task .link-actions { gap: .35rem; }
   .modal-type-issue .link-actions button,
   .modal-type-task .link-actions button { min-height: 2.35rem; }
+}
+
+@media (max-width: 720px) {
+  /* Pending tasks follow the same compact card rhythm as issues. */
+  .pending-task-card-row td:nth-child(2) {
+    border-bottom: 1px solid var(--line);
+    grid-column: 1;
+    grid-row: 1;
+    padding: .2rem .2rem .35rem;
+  }
+  .pending-task-card-row td:nth-child(2) .table-cell-text {
+    -webkit-line-clamp: 2;
+    font-size: .92rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+  .pending-task-card-row td:last-child {
+    grid-column: 2;
+    grid-row: 1;
+    padding: .1rem 0 .25rem;
+  }
+  .pending-task-card-row td:first-child { grid-column: 1; grid-row: 2; }
+  .pending-task-card-row td:nth-child(3) { grid-column: 2; grid-row: 2; }
+  .pending-task-card-row td:nth-child(4) { grid-column: 1; grid-row: 3; }
+  .pending-task-card-row td:nth-child(5) { grid-column: 2; grid-row: 3; justify-content: flex-end; }
+  .pending-task-card-row td:last-child .link-actions { justify-content: flex-end; width: auto; }
+  .pending-task-card-row td:last-child .link-actions button {
+    flex: 0 0 auto;
+    font-size: 0;
+    height: 2.15rem;
+    max-width: none;
+    padding: 0;
+    width: 2.15rem;
+  }
+  .pending-task-card-row td:last-child .link-actions .row-edit-action::before { content: "✎"; font-size: 1.05rem; }
+  .pending-task-card-row td:last-child .link-actions .row-delete-action::before { content: "🗑"; font-size: .95rem; }
+  .pending-task-card-row .inline-status { max-width: 8rem; }
 }
