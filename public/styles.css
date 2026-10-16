@@ -916,6 +916,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   align-items: center;
   border-radius: 50%;
   font-size: 0;
+  flex: 0 0 2.15rem;
   height: 2.15rem;
   justify-content: center;
   min-height: 2.15rem;
@@ -932,17 +933,17 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   #pendingTasksPanel .table-wrap th,
   #pendingTasksPanel .table-wrap td { max-width: none; }
   #pendingTasksPanel .table-wrap th:nth-child(1),
-  #pendingTasksPanel .table-wrap td:nth-child(1) { width: 20%; }
+  #pendingTasksPanel .table-wrap td:nth-child(1) { width: 22%; }
   #pendingTasksPanel .table-wrap th:nth-child(2),
-  #pendingTasksPanel .table-wrap td:nth-child(2) { width: 25%; }
+  #pendingTasksPanel .table-wrap td:nth-child(2) { width: 23%; }
   #pendingTasksPanel .table-wrap th:nth-child(3),
-  #pendingTasksPanel .table-wrap td:nth-child(3) { width: 22%; }
+  #pendingTasksPanel .table-wrap td:nth-child(3) { padding-right: 1.25rem; width: 19%; }
   #pendingTasksPanel .table-wrap th:nth-child(4),
-  #pendingTasksPanel .table-wrap td:nth-child(4) { width: 15%; }
+  #pendingTasksPanel .table-wrap td:nth-child(4) { padding-left: 1.25rem; width: 15%; }
   #pendingTasksPanel .table-wrap th:nth-child(5),
   #pendingTasksPanel .table-wrap td:nth-child(5) { width: 12%; }
   #pendingTasksPanel .table-wrap th:last-child,
-  #pendingTasksPanel .table-wrap td:last-child { width: 6%; }
+  #pendingTasksPanel .table-wrap td:last-child { width: 9%; }
 }
 
 /* Editing modals share a fixed chrome and a scrollable form surface. */
@@ -1327,7 +1328,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .pending-task-card-row td:nth-child(5) { grid-column: 2; grid-row: 3; justify-content: flex-end; }
   .pending-task-card-row td:last-child .link-actions { justify-content: flex-end; width: auto; }
   .pending-task-card-row td:last-child .link-actions button {
-    flex: 0 0 auto;
+    flex: 0 0 2.15rem;
     font-size: 0;
     height: 2.15rem;
     max-width: none;
