@@ -731,7 +731,7 @@ function renderPendingTasks() {
     row.className = 'clickable-row pending-task-card-row';
     row.dataset.tableRowId = task.taskId;
     row.dataset.issueId = task.issueId;
-    row.innerHTML = `<td class="table-first-cell" data-label="Asunto">${task.issueId ? tableRowDragHandle('pendingTasks') : ''}${issueChip(task.issueTitle)}</td><td data-label="Tarea">${tableText(task.task)}</td><td data-label="Quién la hace">${tableText(task.assigneesText)}</td><td data-label="Fecha límite">${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td data-label="Estado">${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
+    row.innerHTML = `<td class="table-first-cell" data-label="Asunto">${task.issueId ? tableRowDragHandle('pendingTasks') : ''}${issueChip(task.issueTitle)}</td><td data-label="Tarea">${tableText(task.task)}</td><td data-label="Quién la hace">${taskAssigneeChips(task.assignees)}</td><td data-label="Fecha límite">${inlineDateInput(task.dueDate, 'task', task.taskId)}</td><td data-label="Estado">${inlineStatusSelect(task.status, 'task', task.taskId)}</td>`;
     row.querySelectorAll('td').forEach((cell) => cell.addEventListener('click', () => openTaskView(task)));
     const date = row.querySelector('[data-inline-task-date]');
     date.addEventListener('click', (event) => event.stopPropagation());
@@ -1301,8 +1301,11 @@ function filterBar(tableId) {
 function refreshFilterControls(bar, tableId) {
   bar.querySelector('.quick-filters')?.remove();
   bar.querySelector('.mine-filter')?.remove();
-  if (['issues', 'pendingTasks'].includes(tableId)) bar.append(statusFilterChips(tableId));
-  if (tableId === 'pendingTasks') bar.append(mineFilterChip(tableId));
+  if (['issues', 'pendingTasks'].includes(tableId)) {
+    const filters = statusFilterChips(tableId);
+    if (tableId === 'pendingTasks') filters.append(mineFilterChip(tableId));
+    bar.append(filters);
+  }
 }
 
 function filterInput(tableId) {
