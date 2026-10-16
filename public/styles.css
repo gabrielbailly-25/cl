@@ -914,6 +914,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
 .table-row-actions .row-edit-action,
 .table-row-actions .row-delete-action {
   align-items: center;
+  border-radius: 50%;
   font-size: 0;
   height: 2.15rem;
   justify-content: center;
@@ -921,6 +922,8 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   padding: 0;
   width: 2.15rem;
 }
+.table-row-actions .row-edit-action { background: var(--brand); color: white; }
+.table-row-actions .row-delete-action { background: var(--danger); color: white; }
 .table-row-actions .row-edit-action::before { content: "✎"; font-size: 1.05rem; }
 .table-row-actions .row-delete-action::before { content: "🗑"; font-size: .95rem; }
 

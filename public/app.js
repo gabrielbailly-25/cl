@@ -716,7 +716,7 @@ function renderPendingTasks() {
   const columns = [
     { key: 'issueTitle', label: 'Asunto' },
     { key: 'task', label: 'Tarea' },
-    { key: 'assigneesText', label: 'Quién/es la deben realizar' },
+    { key: 'assigneesText', label: 'Quiénes' },
     { key: 'dueDateText', label: 'Fecha límite' },
     { key: 'status', label: 'Estado' },
   ];
@@ -780,13 +780,13 @@ async function updateTaskStatus(issueId, taskId, status) {
 }
 
 function exportPendingTasksCsv() {
-  downloadCsv('tareas-pendientes.csv', ['Tarea', 'Asunto', 'Quién/es la deben realizar', 'Fecha límite', 'Estado'], pendingTasks().map((task) => [task.task, task.issueTitle, task.assigneesText, task.dueDateText, task.status]));
+  downloadCsv('tareas-pendientes.csv', ['Tarea', 'Asunto', 'Quiénes', 'Fecha límite', 'Estado'], pendingTasks().map((task) => [task.task, task.issueTitle, task.assigneesText, task.dueDateText, task.status]));
 }
 
 function exportMyTasksCsv() {
   const email = String(state.me.email || '').toLowerCase();
   const tasks = pendingTasks().filter((task) => (task.assignees || []).some((assignee) => assigneeMatchesUser(assignee, email)));
-  downloadCsv('mis-tareas-pendientes.csv', ['Tarea', 'Asunto', 'Quién/es la deben realizar', 'Fecha límite', 'Estado'], tasks.map((task) => [task.task, task.issueTitle, task.assigneesText, task.dueDateText, task.status]));
+  downloadCsv('mis-tareas-pendientes.csv', ['Tarea', 'Asunto', 'Quiénes', 'Fecha límite', 'Estado'], tasks.map((task) => [task.task, task.issueTitle, task.assigneesText, task.dueDateText, task.status]));
 }
 
 function pendingTasks() {
