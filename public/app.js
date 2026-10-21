@@ -51,14 +51,18 @@ function bindEvents() {
   $('#passwordResetConfirmForm').addEventListener('submit', confirmPasswordReset);
   $('#logoutButton').addEventListener('click', logout);
   $('#addLinkButton').addEventListener('click', () => openLinkModal());
+  $('#clearLinksButton').addEventListener('click', () => clearTable('links'));
   $('#editDashboardTitleButton').addEventListener('click', openDashboardTitleModal);
   $('#addIssueButton').addEventListener('click', () => openIssueModal());
   $('#exportIssuesButton').addEventListener('click', exportIssuesCsv);
+  $('#clearIssuesButton').addEventListener('click', () => clearTable('issues'));
   $('#exportPendingTasksButton').addEventListener('click', exportPendingTasksCsv);
   $('#exportMyTasksButton').addEventListener('click', exportMyTasksCsv);
   $('#addPendingTaskButton').addEventListener('click', () => openTaskModal());
+  $('#clearPendingTasksButton').addEventListener('click', () => clearTable('pendingTasks'));
   $('#addAgreementButton').addEventListener('click', () => openAgreementModal());
   $('#exportAgreementsButton').addEventListener('click', exportAgreementsCsv);
+  $('#clearAgreementsButton').addEventListener('click', () => clearTable('agreements'));
   $('#addTableButton').addEventListener('click', () => openTableModal());
   $('#addTextBlockButton').addEventListener('click', addTextBlock);
   $('#addUserButton').addEventListener('click', () => addUserRow());
@@ -441,6 +445,27 @@ function renderHiddenSections() {
     const section = document.querySelector(`[data-section-id="${sectionId}"]`);
     if (section) section.classList.toggle('hidden', hidden.has(sectionId));
   });
+}
+
+async function clearTable(tableId) {
+  const labels = { links: 'enlaces', issues: 'asuntos', pendingTasks: 'tareas pendientes', agreements: 'acuerdos' };
+  const customTable = (state.data.customTables || []).find((table) => table.id === tableId);
+  const label = labels[tableId] || (customTable && `registros de ${customTable.title}`);
+  if (!label || !window.confirm(`¿Borrar todos los ${label}? Esta acción no se puede deshacer.`)) return;
+  if (tableId === 'links') state.data.frequentLinks = [];
+  if (tableId === 'issues') state.data.issues = [];
+  if (tableId === 'pendingTasks') {
+    state.data.issues = (state.data.issues || []).map((issue) => ({ ...issue, tasks: [] }));
+    state.data.tasks = [];
+  }
+  if (tableId === 'agreements') state.data.agreements = [];
+  if (customTable) customTable.rows = [];
+  try {
+    await persist();
+    showToast(`${label[0].toUpperCase()}${label.slice(1)} borrados`);
+  } catch (error) {
+    showToast(error.message);
+  }
 }
 
 async function toggleSection(sectionId) {
@@ -1001,6 +1026,7 @@ function renderCustomTables() {
     const actions = document.createElement('div');
     actions.className = 'link-actions';
     actions.append(button('Añadir fila', () => openCustomRowModal(table)));
+    actions.append(button('Borrar todos', () => clearTable(table.id), 'danger small-button'));
     if (activeDashboard().isAdmin) actions.append(button('Editar tabla', () => openTableModal(table)));
     header.append(actions);
     panel.append(header);

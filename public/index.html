@@ -18,7 +18,7 @@
     <link rel="manifest" href="/manifest.webmanifest?v=20260822">
     <link rel="icon" type="image/png" href="/images/app-icon.png?v=20260822">
     <link rel="apple-touch-icon" href="/images/app-icon.png?v=20260822">
-    <link rel="stylesheet" href="/styles.css?v=20260821-6800">
+    <link rel="stylesheet" href="/styles.css?v=20260821-6900">
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
   </head>
   <body>
@@ -92,6 +92,7 @@
           </div>
           <div class="link-actions">
             <button id="addLinkButton" type="button">Añadir enlace</button>
+            <button id="clearLinksButton" type="button" class="danger small-button">Borrar todos</button>
           </div>
         </div>
         <div id="linksList" class="links-grid"></div>
@@ -107,6 +108,7 @@
           </div>
           <div class="link-actions">
             <button id="addIssueButton" type="button">Añadir asunto</button>
+            <button id="clearIssuesButton" type="button" class="danger small-button">Borrar todos</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -125,7 +127,7 @@
             <button type="button" class="icon-button section-edit-button" data-edit-section-title="pendingTasks" aria-label="Editar título">✏️</button>
             <button id="exportPendingTasksButton" type="button" class="icon-button section-export-button" aria-label="Exportar Tareas pendientes a CSV">&#8595;</button>
           </div>
-          <div class="link-actions"><button id="exportMyTasksButton" type="button" class="secondary">Exportar tareas</button><button id="addPendingTaskButton" type="button">Añadir tarea</button></div>
+          <div class="link-actions"><button id="exportMyTasksButton" type="button" class="secondary">Exportar tareas</button><button id="addPendingTaskButton" type="button">Añadir tarea</button><button id="clearPendingTasksButton" type="button" class="danger small-button">Borrar todos</button></div>
         </div>
         <div class="table-wrap">
           <table>
@@ -145,6 +147,7 @@
           </div>
           <div class="link-actions">
             <button id="addAgreementButton" type="button">Añadir acuerdo</button>
+            <button id="clearAgreementsButton" type="button" class="danger small-button">Borrar todos</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -292,6 +295,6 @@
 
     <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-    <script src="/app.js?v=20260821-6800"></script>
+    <script src="/app.js?v=20260821-6900"></script>
   </body>
 </html>
