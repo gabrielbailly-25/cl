@@ -302,6 +302,23 @@ app.post('/api/reminders/test', requireAuth, requireDashboardAdmin, asyncHandler
 app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('file'), asyncHandler(async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No se ha recibido ningún archivo' });
   let fileName = req.file.filename;
+  if (pool) {
+    await initializeDatabase();
+    fileName = `uploads/${req.dashboardId}/${Date.now()}-${id()}-${safeFileName(req.file.originalname)}`;
+    const buffer = req.file.buffer || (req.file.path ? fs.readFileSync(req.file.path) : null);
+    if (!buffer) return res.status(400).json({ error: 'No se ha recibido ningún archivo' });
+    await pool.query(
+      'INSERT INTO consejo_attachments (file_name, dashboard_id, original_name, content_type, data, size_bytes) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (file_name) DO UPDATE SET data = EXCLUDED.data, content_type = EXCLUDED.content_type, size_bytes = EXCLUDED.size_bytes',
+      [fileName, req.dashboardId, req.file.originalname, req.file.mimetype || 'application/octet-stream', buffer, buffer.length],
+    );
+    return res.json({
+      type: 'file',
+      label: text(req.body.label) || req.file.originalname,
+      originalName: req.file.originalname,
+      fileName,
+      url: `/api/uploads/${encodeURIComponent(req.dashboardId)}/${encodeURIComponent(fileName)}`,
+    });
+  }
   if (IS_VERCEL) {
     if (!BLOB_READ_WRITE_TOKEN) return res.status(503).json({ error: 'BLOB_READ_WRITE_TOKEN es obligatorio para adjuntar archivos en Vercel.' });
     fileName = `uploads/${req.dashboardId}/${Date.now()}-${id()}-${safeFileName(req.file.originalname)}`;
@@ -324,6 +341,28 @@ app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('fil
 app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (req, res) => {
   const dashboard = getDashboardForUser(req.user.email, req.params.dashboardId);
   if (!dashboard) return res.status(403).send('No autorizado');
+  if (pool) {
+    await initializeDatabase();
+    const result = await pool.query(
+      'SELECT original_name, content_type, data FROM consejo_attachments WHERE file_name = $1 AND dashboard_id = $2',
+      [req.params.fileName, dashboard.id],
+    );
+    if (!result.rows.length) {
+      if (IS_VERCEL && BLOB_READ_WRITE_TOKEN) {
+        try {
+          const blob = await head(req.params.fileName, { token: BLOB_READ_WRITE_TOKEN });
+          return res.redirect(302, blob.downloadUrl);
+        } catch (blobError) {
+          return res.status(404).send('Archivo no encontrado');
+        }
+      }
+      return res.status(404).send('Archivo no encontrado');
+    }
+    const row = result.rows[0];
+    res.set('Content-Type', row.content_type || 'application/octet-stream');
+    res.set('Content-Disposition', `inline; filename="${String(row.original_name).replace(/"/g, '')}"`);
+    return res.send(row.data);
+  }
   if (IS_VERCEL) {
     if (!BLOB_READ_WRITE_TOKEN) return res.status(503).send('El almacenamiento de adjuntos no está configurado.');
     const fileName = req.params.fileName;
@@ -474,6 +513,15 @@ async function initializeDatabase() {
         'INSERT INTO consejo_state (id, data) VALUES (true, $1::jsonb) ON CONFLICT (id) DO NOTHING',
         [JSON.stringify(initialStore())],
       );
+      await pool.query(`CREATE TABLE IF NOT EXISTS consejo_attachments (
+        file_name text PRIMARY KEY,
+        dashboard_id text NOT NULL,
+        original_name text NOT NULL,
+        content_type text NOT NULL DEFAULT 'application/octet-stream',
+        data bytea NOT NULL,
+        size_bytes integer NOT NULL DEFAULT 0,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )`);
     })().catch((error) => {
       databaseInitialization = null;
       throw error;
