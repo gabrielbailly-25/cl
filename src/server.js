@@ -338,19 +338,22 @@ app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('fil
   });
 }));
 
-app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (req, res) => {
+app.get('/api/uploads/:dashboardId/*', requireAuth, asyncHandler(async (req, res) => {
   const dashboard = getDashboardForUser(req.user.email, req.params.dashboardId);
   if (!dashboard) return res.status(403).send('No autorizado');
+  let requestedFile = req.params[0] || req.params.fileName || '';
+  try { requestedFile = decodeURIComponent(requestedFile); } catch (decodeError) {}
   if (pool) {
     await initializeDatabase();
+    const candidates = [...new Set([requestedFile, req.params.fileName].filter(Boolean))];
     const result = await pool.query(
-      'SELECT original_name, content_type, data FROM consejo_attachments WHERE file_name = $1 AND dashboard_id = $2',
-      [req.params.fileName, dashboard.id],
+      'SELECT original_name, content_type, data FROM consejo_attachments WHERE dashboard_id = $1 AND file_name = ANY($2)',
+      [dashboard.id, candidates],
     );
     if (!result.rows.length) {
       if (IS_VERCEL && BLOB_READ_WRITE_TOKEN) {
         try {
-          const blob = await head(req.params.fileName, { token: BLOB_READ_WRITE_TOKEN });
+          const blob = await head(requestedFile, { token: BLOB_READ_WRITE_TOKEN });
           return res.redirect(302, blob.downloadUrl);
         } catch (blobError) {
           return res.status(404).send('Archivo no encontrado');
@@ -365,7 +368,7 @@ app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (
   }
   if (IS_VERCEL) {
     if (!BLOB_READ_WRITE_TOKEN) return res.status(503).send('El almacenamiento de adjuntos no está configurado.');
-    const fileName = req.params.fileName;
+    const fileName = requestedFile;
     if (!fileName.startsWith(`uploads/${dashboard.id}/`) || fileName.includes('..')) return res.status(400).send('Archivo no válido');
     try {
       const blob = await head(fileName, { token: BLOB_READ_WRITE_TOKEN });
@@ -374,7 +377,7 @@ app.get('/api/uploads/:dashboardId/:fileName', requireAuth, asyncHandler(async (
       return res.status(404).send('Archivo no encontrado');
     }
   }
-  const fileName = path.basename(req.params.fileName);
+  const fileName = path.basename(requestedFile);
   res.sendFile(path.join(UPLOAD_DIR, dashboard.id, fileName));
 }));
 
