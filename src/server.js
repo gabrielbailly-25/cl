@@ -316,7 +316,7 @@ app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('fil
       label: text(req.body.label) || req.file.originalname,
       originalName: req.file.originalname,
       fileName,
-      url: `/api/uploads/${encodeURIComponent(req.dashboardId)}/${encodeURIComponent(fileName)}`,
+      url: `/api/uploads?dashboard=${encodeURIComponent(req.dashboardId)}&file=${encodeURIComponent(fileName)}`,
     });
   }
   if (IS_VERCEL) {
@@ -334,8 +334,55 @@ app.post('/api/uploads', requireAuth, requireDashboardAccess, upload.single('fil
     label: text(req.body.label) || req.file.originalname,
     originalName: req.file.originalname,
     fileName,
-    url: `/api/uploads/${encodeURIComponent(req.dashboardId)}/${encodeURIComponent(fileName)}`,
+    url: `/api/uploads?dashboard=${encodeURIComponent(req.dashboardId)}&file=${encodeURIComponent(fileName)}`,
   });
+}));
+
+app.get('/api/uploads', requireAuth, requireDashboardAccess, asyncHandler(async (req, res) => {
+  // Descarga por query: Vercel no enruta /api/uploads/<a>/<b>/<c> a la función,
+  // pero sí /api/uploads con query, así que el archivo va en ?file=...
+  const requestedFile = text(req.query.file || req.query.fileName || '');
+  if (!requestedFile) return res.status(400).send('Archivo no válido');
+  if (pool) {
+    await initializeDatabase();
+    const baseName = requestedFile.split('/').pop();
+    let result = await pool.query(
+      'SELECT original_name, content_type, data FROM consejo_attachments WHERE dashboard_id = $1 AND file_name = $2',
+      [req.dashboardId, requestedFile],
+    );
+    if (!result.rows.length && baseName) {
+      result = await pool.query(
+        'SELECT original_name, content_type, data FROM consejo_attachments WHERE dashboard_id = $1 AND file_name LIKE $2 ORDER BY created_at DESC LIMIT 1',
+        [req.dashboardId, `%/${baseName}`],
+      );
+    }
+    if (!result.rows.length) {
+      if (IS_VERCEL && BLOB_READ_WRITE_TOKEN) {
+        try {
+          const blob = await head(requestedFile, { token: BLOB_READ_WRITE_TOKEN });
+          return res.redirect(302, blob.downloadUrl);
+        } catch (blobError) {
+          return res.status(404).send(`Archivo no encontrado en base de datos: ${requestedFile}`);
+        }
+      }
+      return res.status(404).send(`Archivo no encontrado en base de datos: ${requestedFile}`);
+    }
+    const row = result.rows[0];
+    res.set('Content-Type', row.content_type || 'application/octet-stream');
+    res.set('Content-Disposition', `inline; filename="${String(row.original_name).replace(/"/g, '')}"`);
+    return res.send(row.data);
+  }
+  if (IS_VERCEL) {
+    if (!BLOB_READ_WRITE_TOKEN) return res.status(503).send('El almacenamiento de adjuntos no está configurado.');
+    try {
+      const blob = await head(requestedFile, { token: BLOB_READ_WRITE_TOKEN });
+      return res.redirect(302, blob.downloadUrl);
+    } catch (error) {
+      return res.status(404).send('Archivo no encontrado');
+    }
+  }
+  const fileName = path.basename(requestedFile);
+  res.sendFile(path.join(UPLOAD_DIR, req.dashboardId, fileName));
 }));
 
 app.get('/api/uploads/:dashboardId/*', requireAuth, asyncHandler(async (req, res) => {

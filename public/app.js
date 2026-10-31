@@ -648,12 +648,26 @@ function openIssueView(issue) {
   if (!issueViewModal.open) issueViewModal.showModal();
 }
 
+function attachmentDownloadUrl(attachment) {
+  // Las URL antiguas /api/uploads/<reunión>/<archivo> no las enruta Vercel;
+  // se convierten a /api/uploads?dashboard=...&file=..., que sí llega a la app.
+  if (attachment.fileName) return `/api/uploads?dashboard=${encodeURIComponent(state.activeDashboard)}&file=${encodeURIComponent(attachment.fileName)}`;
+  const url = attachment.url || '';
+  const match = url.match(/^\/api\/uploads\/([^/]+)\/(.+)$/);
+  if (match) {
+    let file = match[2];
+    try { file = decodeURIComponent(file); } catch (decodeError) {}
+    return `/api/uploads?dashboard=${encodeURIComponent(match[1])}&file=${encodeURIComponent(file)}`;
+  }
+  return url;
+}
+
 function renderIssueAttachments(attachments) {
   if (!attachments.length) return '<p class="muted-text">No hay documentos adjuntos.</p>';
   return `<div class="attachment-list">${attachments.map((attachment) => {
     const label = attachment.label || attachment.originalName || attachment.url || 'Documento';
     const isFile = attachment.type === 'file' || attachment.fileName;
-    return `<a class="attachment-link" href="${escapeAttr(attachment.url)}" target="_blank" rel="noopener"${isFile ? ' download' : ''}>${escapeHtml(label)}<span>${isFile ? 'Descargar' : 'Visitar'}</span></a>`;
+    return `<a class="attachment-link" href="${escapeAttr(attachmentDownloadUrl(attachment))}" target="_blank" rel="noopener"${isFile ? ' download' : ''}>${escapeHtml(label)}<span>${isFile ? 'Descargar' : 'Visitar'}</span></a>`;
   }).join('')}</div>`;
 }
 
@@ -1951,7 +1965,7 @@ function customFieldReadOnly(field, value) {
   if (field.type === 'url' && value) content = `<a href="${escapeAttr(value)}" target="_blank" rel="noopener">${escapeHtml(value)}</a>`;
   else if (field.type === 'documento') {
     const documents = Array.isArray(value) ? value : [];
-    content = documents.length ? documents.map((document) => `<a href="${escapeAttr(document.url)}" target="_blank" rel="noopener">${escapeHtml(document.label || document.originalName || 'Documento')}</a>`).join('') : 'Sin documentos';
+    content = documents.length ? documents.map((document) => `<a href="${escapeAttr(attachmentDownloadUrl(document))}" target="_blank" rel="noopener">${escapeHtml(document.label || document.originalName || 'Documento')}</a>`).join('') : 'Sin documentos';
   } else content = field.type === 'textoLargo' ? renderRichText(value) || 'Sin valor' : escapeHtml(formatCustomValue(field, value) || 'Sin valor');
   return html(`<section class="read-only-field"><h3>${escapeHtml(field.label)}</h3><div>${content}</div></section>`);
 }
