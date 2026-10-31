@@ -346,20 +346,29 @@ app.get('/api/uploads/:dashboardId/*', requireAuth, asyncHandler(async (req, res
   if (pool) {
     await initializeDatabase();
     const candidates = [...new Set([requestedFile, req.params.fileName].filter(Boolean))];
-    const result = await pool.query(
+    const baseName = requestedFile.split('/').pop();
+    let result = await pool.query(
       'SELECT original_name, content_type, data FROM consejo_attachments WHERE dashboard_id = $1 AND file_name = ANY($2)',
       [dashboard.id, candidates],
     );
+    if (!result.rows.length && baseName) {
+      // Por si el nombre guardado difiere en el prefijo (p. ej. otra reunión
+      // o una URL antigua), buscar por el nombre base del archivo.
+      result = await pool.query(
+        'SELECT original_name, content_type, data FROM consejo_attachments WHERE dashboard_id = $1 AND file_name LIKE $2 ORDER BY created_at DESC LIMIT 1',
+        [dashboard.id, `%/${baseName}`],
+      );
+    }
     if (!result.rows.length) {
       if (IS_VERCEL && BLOB_READ_WRITE_TOKEN) {
         try {
           const blob = await head(requestedFile, { token: BLOB_READ_WRITE_TOKEN });
           return res.redirect(302, blob.downloadUrl);
         } catch (blobError) {
-          return res.status(404).send('Archivo no encontrado');
+          return res.status(404).send(`Archivo no encontrado en base de datos: ${requestedFile}`);
         }
       }
-      return res.status(404).send('Archivo no encontrado');
+      return res.status(404).send(`Archivo no encontrado en base de datos: ${requestedFile}`);
     }
     const row = result.rows[0];
     res.set('Content-Type', row.content_type || 'application/octet-stream');
