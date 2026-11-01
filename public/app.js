@@ -1787,9 +1787,19 @@ function renderAppearanceSettings() {
   const hidden = new Set(state.data.hiddenSections || []);
   $('#showLinksSection').checked = !hidden.has('links');
   $('#showAgreementsSection').checked = !hidden.has('agreements');
+  const select = $('#defaultDashboardSelect');
+  if (select) {
+    select.innerHTML = (state.me.dashboards || []).map((dashboard) => `<option value="${escapeAttr(dashboard.id)}">${escapeHtml(dashboard.name)}</option>`).join('');
+    select.value = state.me.defaultDashboard || state.activeDashboard;
+  }
 }
 
 async function saveAppearance() {
+  const defaultDashboardSelect = $('#defaultDashboardSelect');
+  if (defaultDashboardSelect && defaultDashboardSelect.value) {
+    const result = await api('/api/settings', { method: 'PUT', body: { defaultDashboard: defaultDashboardSelect.value } });
+    state.me.defaultDashboard = result.defaultDashboard;
+  }
   state.data.hiddenSections = [
     ...(!$('#showLinksSection').checked ? ['links'] : []),
     ...(!$('#showAgreementsSection').checked ? ['agreements'] : []),

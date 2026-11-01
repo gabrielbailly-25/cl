@@ -215,6 +215,20 @@ app.get('/api/me', (req, res) => {
   res.json(buildMe(req.user));
 });
 
+app.put('/api/settings', requireAuth, asyncHandler(async (req, res) => {
+  // Ajuste global (no por reunión): qué reunión se abre al entrar en la app.
+  // Solo lo cambia quien ve Configuración: admin de alguna reunión o admin del sistema.
+  const store = readData();
+  const email = text(req.user.email).toLowerCase();
+  const isAdmin = isSystemAdmin(email) || DASHBOARDS.some((dashboard) => isDashboardAdmin(email, dashboard.id));
+  if (!isAdmin) return res.status(403).json({ error: 'Solo administrador' });
+  const defaultDashboard = text(req.body && req.body.defaultDashboard);
+  if (!DASHBOARDS.some((dashboard) => dashboard.id === defaultDashboard)) return res.status(400).json({ error: 'Reunión no válida' });
+  store.defaultDashboard = defaultDashboard;
+  await writeData(store);
+  res.json({ defaultDashboard });
+}));
+
 app.get('/api/cron/reminders', requireCronSecret, asyncHandler(async (req, res) => {
   const sent = await sendDueReminders({ ignoreTime: IS_VERCEL });
   res.json({ ok: true, sent });
@@ -505,7 +519,13 @@ function buildMe(user) {
     name: dashboard.title || dashboard.name,
     isAdmin: isDashboardAdmin(user.email, dashboard.id),
   }));
-  return { ...user, dashboards, activeDashboard: dashboards[0] && dashboards[0].id, isAdmin: dashboards.some((dashboard) => dashboard.isAdmin) };
+  // Reunión de apertura: la elegida en Configuración; si el usuario no tiene
+  // acceso a ella, su primera reunión accesible (comportamiento anterior).
+  const store = readData();
+  const defaultDashboard = DASHBOARDS.some((dashboard) => dashboard.id === store.defaultDashboard) ? store.defaultDashboard : 'san-miguel';
+  const active = dashboards.find((dashboard) => dashboard.id === defaultDashboard) || dashboards[0];
+  const activeDashboard = active && active.id;
+  return { ...user, dashboards, defaultDashboard, activeDashboard, isAdmin: dashboards.some((dashboard) => dashboard.isAdmin) };
 }
 
 function getDashboardForUser(email, requestedId) {
@@ -606,7 +626,7 @@ async function writeData(data) {
 }
 
 function initialStore() {
-  return { version: 2, passwordResetTokens: [], dashboards: Object.fromEntries(DASHBOARDS.map((dashboard) => [dashboard.id, defaultDashboard(dashboard)])) };
+  return { version: 2, passwordResetTokens: [], defaultDashboard: 'san-miguel', dashboards: Object.fromEntries(DASHBOARDS.map((dashboard) => [dashboard.id, defaultDashboard(dashboard)])) };
 }
 
 function defaultDashboard(definition) {
@@ -640,6 +660,7 @@ function normalizeStore(input) {
     base.dashboards[definition.id] = sanitizeDashboard(input.dashboards[definition.id] || {}, base.dashboards[definition.id]);
   }
   base.version = 2;
+  base.defaultDashboard = DASHBOARDS.some((dashboard) => dashboard.id === input.defaultDashboard) ? input.defaultDashboard : 'san-miguel';
   base.passwordResetTokens = array(input.passwordResetTokens).filter((item) => text(item.email) && /^[a-f0-9]{64}$/i.test(text(item.tokenHash)) && new Date(item.expiresAt) > new Date()).map((item) => ({ email: text(item.email).toLowerCase(), tokenHash: text(item.tokenHash), expiresAt: new Date(item.expiresAt).toISOString() }));
   return base;
 }
