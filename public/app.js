@@ -2082,7 +2082,7 @@ function attachmentsField(attachments = []) {
 function tasksField(tasks = []) {
   const box = document.createElement('div');
   box.className = 'stack';
-  box.innerHTML = '<label>Tareas</label><div class="task-row-header"><span>Tarea</span><span>Responsables</span><span>Fecha límite</span><span>Estado</span><span></span></div><div class="stack" data-tasks></div>';
+  box.innerHTML = '<label>Tareas</label><div class="task-row-header"><span>Tarea</span><span>Descripción</span><span>Responsables</span><span>Fecha límite</span><span>Estado</span><span></span></div><div class="stack" data-tasks></div>';
   const list = box.querySelector('[data-tasks]');
   (tasks || []).forEach((task) => list.append(taskRow(task)));
   box.append(button('Añadir tarea', () => list.append(taskRow()), 'secondary task-add-button'));
@@ -2202,14 +2202,21 @@ function readSelectedAssignees(root) {
 }
 
 function updateTask(issueId, taskId, nextTask) {
+  // Antes, una tarea nueva sin id existente no se insertaba en ningún sitio:
+  // Añadir tarea en Tareas pendientes cerraba el modal sin guardar nada.
+  const id = taskId || uid();
   const issue = state.data.issues.find((item) => item.id === issueId);
   if (!issue) {
-    const index = (state.data.tasks || []).findIndex((task) => task.id === taskId);
-    if (index >= 0) state.data.tasks[index] = { ...state.data.tasks[index], ...nextTask, id: taskId };
+    state.data.tasks = state.data.tasks || [];
+    const index = state.data.tasks.findIndex((task) => task.id === id);
+    if (index >= 0) state.data.tasks[index] = { ...state.data.tasks[index], ...nextTask, id };
+    else state.data.tasks.push({ ...nextTask, id, createdAt: new Date().toISOString() });
     return;
   }
-  const index = (issue.tasks || []).findIndex((task) => task.id === taskId);
-  if (index >= 0) issue.tasks[index] = { ...issue.tasks[index], ...nextTask, id: taskId };
+  issue.tasks = issue.tasks || [];
+  const index = issue.tasks.findIndex((task) => task.id === id);
+  if (index >= 0) issue.tasks[index] = { ...issue.tasks[index], ...nextTask, id };
+  else issue.tasks.push({ ...nextTask, id, createdAt: new Date().toISOString() });
 }
 
 async function deleteTask(task, closeModal = true, askConfirm = true) {

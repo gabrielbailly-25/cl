@@ -805,7 +805,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   border-radius: 1rem;
   display: grid;
   gap: .5rem;
-  grid-template-columns: 1.2fr 1fr .7fr .75fr auto;
+  grid-template-columns: 1.2fr 1fr 1fr .7fr .75fr auto;
   padding: .65rem;
 }
 .task-row-header {
@@ -814,7 +814,7 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   font-size: .72rem;
   font-weight: 800;
   gap: .5rem;
-  grid-template-columns: 1.2fr 1fr .7fr .75fr auto;
+  grid-template-columns: 1.2fr 1fr 1fr .7fr .75fr auto;
   padding: 0 .65rem;
   text-transform: uppercase;
 }
@@ -1134,6 +1134,11 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .table-filter-bar[data-filter-for="pendingTasks"] .quick-filters .mine-filter { flex: 0 0 auto; }
   .table-wrap { overflow-x: visible; }
   .table-wrap table, .table-wrap tbody { display: block; }
+  /* En móvil la tabla no puede ser más ancha que la pantalla: el
+     width: max-content de escritorio ensanchaba las tarjetas y cortaba
+     el lado derecho (Añadido por, Leído) sin poder desplazarlo. */
+  .table-wrap table { max-width: 100%; width: 100%; }
+  .table-wrap tbody, .table-wrap tbody tr { max-width: 100%; min-width: 0; }
   .table-wrap thead { display: none; }
   .table-wrap tbody { display: grid; gap: .7rem; }
   .table-wrap tbody tr { background: var(--panel); border: 1px solid var(--line); border-radius: .9rem; display: grid; gap: .15rem; padding: .45rem; }
@@ -1158,6 +1163,15 @@ dialog::backdrop { background: rgba(56, 22, 10, .5); }
   .pending-task-card-row td { min-width: 0; overflow: hidden; }
   .issue-card-row td:nth-child(6) .inline-status,
   .pending-task-card-row td:nth-child(5) .inline-status { min-width: 0; max-width: 100%; width: auto; }
+  /* Los chips de usuario y de lectura no pueden empujar la celda fuera
+     de su columna: se encogen y el nombre se recorta con puntos. */
+  .issue-card-row .user-chip,
+  .pending-task-card-row .user-chip { min-width: 0; }
+  .issue-card-row .user-chip > span,
+  .pending-task-card-row .user-chip > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .issue-card-row .read-by { flex: 1 1 auto; min-width: 0; }
+  .issue-card-row .read-users { flex: 1 1 auto; min-width: 0; }
+  .issue-card-row .read-toggle { flex: 0 0 auto; }
   .issue-card-row td:nth-child(6),
   .pending-task-card-row td:nth-child(5) { gap: .25rem; }
   .issue-card-row td:nth-child(6)::before,
