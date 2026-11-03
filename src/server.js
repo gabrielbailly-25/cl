@@ -303,13 +303,20 @@ app.post('/api/reminders/test', requireAuth, requireDashboardAdmin, asyncHandler
   if (!smtp.host || !smtp.user || !smtp.pass) return res.status(400).json({ error: 'SMTP no configurado' });
   const transporter = nodemailer.createTransport({ host: smtp.host, port: smtp.port, secure: smtp.port === 465, auth: { user: smtp.user, pass: smtp.pass } });
   const tasks = pendingTasksByUser(req.dashboard)[email] || [];
-  await transporter.sendMail({
-    from: smtp.from,
-    to: email,
-    subject: `Prueba de tareas pendientes - ${req.dashboard.name}`,
-    text: buildTasksEmailText(user.name, req.dashboard.name, tasks),
-    html: buildTasksEmailHtml(user.name, req.dashboard.name, tasks),
-  });
+  try {
+    await transporter.sendMail({
+      from: smtp.from,
+      to: email,
+      subject: `Prueba de tareas pendientes - ${req.dashboard.name}`,
+      text: buildTasksEmailText(user.name, req.dashboard.name, tasks),
+      html: buildTasksEmailHtml(user.name, req.dashboard.name, tasks),
+    });
+  } catch (sendError) {
+    // El error genérico 503 ocultaba la causa real (p. ej. contraseña de
+    // aplicación no aceptada por Gmail). Se devuelve el mensaje de
+    // nodemailer, que no contiene la contraseña.
+    return res.status(502).json({ error: `No se pudo enviar el correo de prueba: ${sendError.message}` });
+  }
   res.json({ ok: true });
 }));
 
