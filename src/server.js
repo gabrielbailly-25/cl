@@ -41,6 +41,7 @@ const ONESIGNAL_REST_API_KEY = process.env.ONESIGNAL_REST_API_KEY || '';
 const DASHBOARDS = [
   { id: 'san-miguel', name: 'San Miguel' },
   { id: 'san-rafael', name: 'San Rafael' },
+  { id: 'san-gabriel', name: 'San Gabriel' },
 ];
 const resetAttempts = new Map();
 const pool = DATABASE_URL ? new Pool({ connectionString: DATABASE_URL }) : null;

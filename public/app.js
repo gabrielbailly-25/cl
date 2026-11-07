@@ -26,10 +26,12 @@ const fieldTypeLabels = { texto: 'Texto', textoLargo: 'Texto largo', fecha: 'Fec
 const dashboardLogos = {
   'san-miguel': '/images/app-icon.png?v=20260822',
   'san-rafael': '/images/app-icon.png?v=20260822',
+  'san-gabriel': '/images/app-icon.png?v=20260822',
 };
 const dashboardThemes = {
   'san-miguel': { brand: '#e94e24', accent: '#f58a25', glow: '#ffe2cf' },
   'san-rafael': { brand: '#cf3928', accent: '#f4772b', glow: '#ffe8d8' },
+  'san-gabriel': { brand: '#c47c36', accent: '#e8a33d', glow: '#ffefd2' },
 };
 
 document.addEventListener('DOMContentLoaded', init);
